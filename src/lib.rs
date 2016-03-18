@@ -1,4 +1,4 @@
-#![feature(plugin_registrar, rustc_private, vec_push_all)]
+#![feature(plugin_registrar, rustc_private)]
 
 #[macro_use]
 extern crate syntax;
@@ -20,9 +20,9 @@ use rustc_plugin::Registry;
 
 use syntax::parse::parser::Parser;
 use syntax::ext::base::SyntaxExtension::IdentTT;
-use syntax::ext::base::{ExtCtxt, MacResult, MacEager, DummyResult};
+use syntax::ext::base::{ExtCtxt, MacResult, DummyResult};
 use syntax::codemap::Span;
-use syntax::parse::token::{intern, Eof, Token, IdentStyle};
+use syntax::parse::token::{intern, Eof, Token};
 use syntax::ast::*;
 
 use system::*;
@@ -111,7 +111,7 @@ fn parse_handler_definition(ctx: &mut ExtCtxt, parser: &mut Parser) -> Option<Ha
                 }
             }
         },
-        
+
         Ok(ref tt) => {
             ctx.span_err(tt.get_span(), "Expected delimited list of handler functions");
             return None
@@ -137,7 +137,7 @@ fn parse_handler_function_definition(ctx: &mut ExtCtxt, parser: &mut Parser) -> 
     };
 
     let args = match parser.parse_token_tree() {
-        Ok(TokenTree::Delimited(span, ref tts)) => {
+        Ok(TokenTree::Delimited(_, ref tts)) => {
             let mut arg_parser = ctx.new_parser_from_tts(&tts.tts);
             let mut args = Vec::new();
 
@@ -189,7 +189,7 @@ fn parse_handler_function_definition(ctx: &mut ExtCtxt, parser: &mut Parser) -> 
     Some(HandlerFnInfo::new(source, dest, args))
 }
 
-fn parse_handler_function_arg(ctx: &mut ExtCtxt, parser: &mut Parser) -> Option<HandlerFnArg> {
+fn parse_handler_function_arg(_: &mut ExtCtxt, parser: &mut Parser) -> Option<HandlerFnArg> {
     let name = match parser.parse_ident() {
         Ok(ident) => ident,
 

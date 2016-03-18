@@ -1,12 +1,9 @@
-use std::ops::Deref;
-
 use syntax::ast::*;
 use syntax::ptr::P;
 use syntax::codemap::{respan, Span};
-use syntax::ext::base::{ExtCtxt, MacResult, MacEager, DummyResult};
+use syntax::ext::base::{MacResult, MacEager};
 use syntax::util::small_vector::SmallVector;
 use syntax::parse::token::str_to_ident;
-use syntax::print::pprust;
 use syntax::abi::Abi;
 
 use ::util;
@@ -82,7 +79,7 @@ impl SystemInfo {
             kind: StructFieldKind::NamedField(str_to_ident("objects"), Visibility::Inherited),
             id: DUMMY_NODE_ID,
             ty: P(util::param_ty_from_ident(
-                str_to_ident("Vec"), 
+                str_to_ident("Vec"),
                 util::param_ty_from_ident(
                     str_to_ident("Box"),
                     util::ty_from_ident(self.object_name())
@@ -112,7 +109,7 @@ impl SystemInfo {
                 VariantData::Struct(
                     fields,
                     DUMMY_NODE_ID
-                ), 
+                ),
                 Default::default()
             ),
             id: DUMMY_NODE_ID,
@@ -126,7 +123,7 @@ impl SystemInfo {
         let system_struct = self.generate_struct();
 
         let mut items: Vec<P<Item>> = self.handlers.iter().map(|handler| P(handler.generate(self))).collect();
-        items.push_all(&[P(object_trait), P(system_struct)]);
+        items.extend_from_slice(&[P(object_trait), P(system_struct)]);
 
         MacEager::items(SmallVector::many(items))
     }
@@ -139,15 +136,15 @@ impl HandlerInfo {
             fns: Vec::new()
         }
     }
-    
+
     pub fn add_function(&mut self, function: HandlerFnInfo) {
         self.fns.push(function)
     }
 
     pub fn generate_as_self(&self, system: &SystemInfo) -> TraitItem {
-        let mut args = vec![
+        let args = vec![
             Arg::new_self(
-                system.span, 
+                system.span,
                 Mutability::Immutable,
                 str_to_ident("self")
             )
@@ -166,7 +163,7 @@ impl HandlerInfo {
                         inputs: args,
                         output: FunctionRetTy::Ty(P(
                             util::param_ty_from_ident(
-                                str_to_ident("Option"), 
+                                str_to_ident("Option"),
                                 Ty {
                                     id: DUMMY_NODE_ID,
                                     node: TyKind::Rptr(
@@ -196,9 +193,9 @@ impl HandlerInfo {
     }
 
     pub fn generate_as_self_mut(&self, system: &SystemInfo) -> TraitItem {
-        let mut args = vec![
+        let args = vec![
             Arg::new_self(
-                system.span, 
+                system.span,
                 Mutability::Immutable,
                 str_to_ident("self")
             )
@@ -217,7 +214,7 @@ impl HandlerInfo {
                         inputs: args,
                         output: FunctionRetTy::Ty(P(
                             util::param_ty_from_ident(
-                                str_to_ident("Option"), 
+                                str_to_ident("Option"),
                                 Ty {
                                     id: DUMMY_NODE_ID,
                                     node: TyKind::Rptr(
@@ -275,7 +272,7 @@ impl HandlerFnInfo {
     pub fn generate(&self, system: &SystemInfo) -> TraitItem {
         let mut args = vec![
             Arg::new_self(
-                system.span, 
+                system.span,
                 Mutability::Immutable,
                 str_to_ident("self")
             )
