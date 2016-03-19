@@ -1,4 +1,4 @@
-#![feature(plugin)]
+#![feature(plugin, box_syntax)]
 #![plugin(handlers)]
 
 define_handler_system! System {
@@ -46,10 +46,10 @@ impl System {
         }
     }
 
-    pub fn add(&mut self, object: Box<SystemObject>) {
+    pub fn add<O>(&mut self, object: O) where O: 'static + SystemObject {
         let idx = self.objects.len();
 
-        self.objects.push(object);
+        self.objects.push(Box::new(object));
         let object = self.objects.last().unwrap();
 
         if let Some(_) = object.as_MouseHandler() {
@@ -63,6 +63,19 @@ impl System {
 }
 */
 
+pub struct Test {
+    pub n: i64
+}
+
+impl SystemObject for Test {
+    fn as_MouseHandler(&self) -> Option<&MouseHandler> { None }
+    fn as_MouseHandler_mut(&mut self) -> Option<&mut MouseHandler> { None }
+
+    fn as_InputHandler(&self) -> Option<&InputHandler> { None }
+    fn as_InputHandler_mut(&mut self) -> Option<&mut InputHandler> { None }
+}
+
 fn main() {
-    println!("Hello, world!");
+    let mut system = System::new();
+    system.add(Test { n: 15 });
 }

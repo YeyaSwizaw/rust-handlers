@@ -43,3 +43,35 @@ pub fn param_ty_from_ident(name: Ident, ty: Ty) -> Ty {
     }
 }
 
+pub fn vec_new() -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Call(
+            P(Expr {
+                id: DUMMY_NODE_ID,
+                node: ExprKind::Path(
+                    None,
+                    Path {
+                        span: DUMMY_SP,
+                        global: false,
+                        segments: vec![
+                            PathSegment {
+                                identifier: str_to_ident("Vec"),
+                                parameters: PathParameters::none()
+                            },
+                            PathSegment {
+                                identifier: str_to_ident("new"),
+                                parameters: PathParameters::none()
+                            }
+                        ]
+                    }
+                ),
+                span: DUMMY_SP,
+                attrs: None
+            }),
+            Vec::new()
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
