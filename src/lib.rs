@@ -36,7 +36,9 @@ lazy_static! {
 
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_syntax_extension(intern("define_handler_system"), IdentTT(Box::new(define_system_macro), None, false));
+    reg.register_syntax_extension(intern("handlers_define_system"), IdentTT(Box::new(define_system_macro), None, false));
+
+    reg.register_syntax_extension(intern("handlers_impl_object"), IdentTT(Box::new(impl_object_macro), None, false));
 }
 
 fn define_system_macro<'a>(ctx: &'a mut ExtCtxt, macro_span: Span, ident: Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'a> {
@@ -73,6 +75,59 @@ fn define_system_macro<'a>(ctx: &'a mut ExtCtxt, macro_span: Span, ident: Ident,
     let result = system.generate_ast();
     systems.insert(name, system);
     result
+}
+
+fn impl_object_macro<'a>(ctx: &'a mut ExtCtxt, macro_span: Span, ident: Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'a> {
+    let name = ident.name.as_str().deref().to_owned();
+
+    let systems = DEFINED_SYSTEMS.lock().unwrap();
+    let system = if let Some(system) = systems.get(&name) {
+        system
+    } else {
+        ctx.span_err(macro_span, &format!("Implementing object for undefined system '{}'", name));
+        return DummyResult::any(macro_span);
+    };
+
+    let mut parser = ctx.new_parser_from_tts(&tts);
+
+    let obj = match parser.parse_ident() {
+        Ok(ident) => ident,
+
+        Err(mut err) => {
+            err.emit();
+            return DummyResult::any(macro_span);
+        }
+    };
+
+    if let Err(mut err) = parser.expect(&Token::Colon) {
+        err.emit();
+        return DummyResult::any(macro_span);
+    }
+
+    let mut impls = Vec::new();
+
+    loop {
+        if parser.check(&Eof) {
+            break
+        }
+
+        match parser.parse_ident() {
+            Ok(ident) => impls.push(format!("{}", ident)),
+
+            Err(mut err) => {
+                err.emit();
+                return DummyResult::any(macro_span);
+            }
+        }
+
+        if !parser.check(&Token::Comma) {
+            break
+        } else {
+            parser.expect(&Token::Comma).unwrap();
+        }
+    }
+
+    system.generate_object_impl(obj, &impls)
 }
 
 fn parse_handler_definition(ctx: &mut ExtCtxt, parser: &mut Parser) -> Option<HandlerInfo> {

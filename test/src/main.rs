@@ -1,7 +1,7 @@
-#![feature(plugin, box_syntax)]
+#![feature(plugin)]
 #![plugin(handlers)]
 
-define_handler_system! System {
+handlers_define_system! System {
     MouseHandler {
         click(x: u64, y: u64) => on_click;
         hover() => on_hover
@@ -23,12 +23,8 @@ impl InputHandler for Test {
     }
 }
 
-impl SystemObject for Test {
-    fn as_MouseHandler(&self) -> Option<&MouseHandler> { None }
-    fn as_MouseHandler_mut(&mut self) -> Option<&mut MouseHandler> { None }
-
-    fn as_InputHandler(&self) -> Option<&InputHandler> { Some(self as &InputHandler) }
-    fn as_InputHandler_mut(&mut self) -> Option<&mut InputHandler> { Some(self as &mut InputHandler) }
+handlers_impl_object! System { 
+    Test: InputHandler 
 }
 
 fn main() {
