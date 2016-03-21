@@ -48,7 +48,7 @@ impl SystemInfo {
     }
 
     fn object_name(&self) -> Ident {
-        util::indent_append(self.name, str_to_ident("Object"))
+        util::ident_append(self.name, str_to_ident("Object"))
     }
 
     fn generate_object_trait(&self) -> Item {
@@ -92,7 +92,7 @@ impl SystemInfo {
 
         for handler in self.handlers.iter() {
             fields.push(respan(self.span, StructField_ {
-                kind: StructFieldKind::NamedField(util::indent_append(handler.name, str_to_ident("_idxs")), Visibility::Inherited),
+                kind: StructFieldKind::NamedField(util::ident_append(handler.name, str_to_ident("_idxs")), Visibility::Inherited),
                 id: DUMMY_NODE_ID,
                 ty: P(util::param_ty_from_ident(
                     str_to_ident("Vec"),
@@ -129,7 +129,7 @@ impl SystemInfo {
 
         for handler in self.handlers.iter() {
             fields.push(Field {
-                ident: respan(self.span, util::indent_append(handler.name, str_to_ident("_idxs"))),
+                ident: respan(self.span, util::ident_append(handler.name, str_to_ident("_idxs"))),
                 expr: P(util::vec_new()),
                 span: self.span
             });
@@ -398,7 +398,9 @@ impl SystemInfo {
             )),
         ];
 
-        // TODO: HANDLER CHECKS
+        for handler in self.handlers.iter() {
+            handler.generate_add_check(self, &mut stmts);
+        }
 
         ImplItem {
             id: DUMMY_NODE_ID,
@@ -506,8 +508,13 @@ impl SystemInfo {
     }
 
     fn generate_impl(&self) -> Item {
+        let mut fns = vec![
+            self.generate_fn_new_impl(),
+            self.generate_fn_add_impl()
+        ];
+
         // TODO: HANDLER SIGNAL FUNCTIONS
-        
+
         Item {
             ident: self.name,
             attrs: Vec::new(),
@@ -517,10 +524,7 @@ impl SystemInfo {
                 Default::default(),
                 None,
                 P(util::ty_from_ident(self.name)),
-                vec![
-                    self.generate_fn_new_impl(),
-                    self.generate_fn_add_impl()
-                ]
+                fns
             ),
             id: DUMMY_NODE_ID,
             span: self.span,
@@ -563,7 +567,7 @@ impl HandlerInfo {
 
         TraitItem {
             id: DUMMY_NODE_ID,
-            ident: util::indent_append(str_to_ident("as_"), self.name),
+            ident: util::ident_append(str_to_ident("as_"), self.name),
             attrs: Vec::new(),
             node: TraitItemKind::Method(
                 MethodSig {
@@ -614,7 +618,7 @@ impl HandlerInfo {
 
         TraitItem {
             id: DUMMY_NODE_ID,
-            ident: util::indent_append(util::indent_append(str_to_ident("as_"), self.name), str_to_ident("_mut")),
+            ident: util::ident_append(util::ident_append(str_to_ident("as_"), self.name), str_to_ident("_mut")),
             attrs: Vec::new(),
             node: TraitItemKind::Method(
                 MethodSig {
@@ -669,6 +673,126 @@ impl HandlerInfo {
             vis: Visibility::Public
         }
     }
+
+    pub fn generate_add_check(&self, system: &SystemInfo, stmts: &mut Vec<Stmt>) {
+        stmts.push(
+            respan(system.span, StmtKind::Semi(
+                P(Expr {
+                    id: DUMMY_NODE_ID,
+                    node: ExprKind::If(
+                        P(Expr {
+                            id: DUMMY_NODE_ID,
+                            node: ExprKind::MethodCall(
+                                respan(system.span, str_to_ident("is_some")),
+                                Vec::new(),
+                                vec![P(Expr {
+                                    id: DUMMY_NODE_ID,
+                                    node: ExprKind::MethodCall(
+                                        respan(system.span, util::ident_append(str_to_ident("as_"), self.name)),
+                                        Vec::new(),
+                                        vec![P(Expr {
+                                            id: DUMMY_NODE_ID,
+                                            node: ExprKind::Path(
+                                                None,
+                                                Path {
+                                                    span: system.span,
+                                                    global: false,
+                                                    segments: vec![
+                                                        PathSegment {
+                                                            identifier: str_to_ident("object"),
+                                                            parameters: PathParameters::none()
+                                                        }
+                                                    ]
+                                                }
+                                            ),
+                                            span: system.span,
+                                            attrs: None
+                                        })]
+                                    ),
+                                    span: system.span,
+                                    attrs: None
+                                })],
+                            ),
+                            span: system.span,
+                            attrs: None
+                        }),
+
+                        P(Block {
+                            stmts: vec![
+                                respan(system.span, StmtKind::Semi(
+                                    P(Expr {
+                                        id: DUMMY_NODE_ID,
+                                        node: ExprKind::MethodCall(
+                                            respan(system.span, str_to_ident("push")),
+                                            Vec::new(),
+                                            vec![
+                                                P(Expr {
+                                                    id: DUMMY_NODE_ID,
+                                                    node: ExprKind::Field(
+                                                        P(Expr {
+                                                            id: DUMMY_NODE_ID,
+                                                            node: ExprKind::Path(
+                                                                None,
+                                                                Path {
+                                                                    span: system.span,
+                                                                    global: false,
+                                                                    segments: vec![
+                                                                        PathSegment {
+                                                                            identifier: str_to_ident("self"),
+                                                                            parameters: PathParameters::none()
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ),
+                                                            span: system.span,
+                                                            attrs: None
+                                                        }),
+                                                        respan(system.span, util::ident_append(self.name, str_to_ident("_idxs")))
+                                                    ),
+                                                    span: system.span,
+                                                    attrs: None
+                                                }),
+
+                                                P(Expr {
+                                                    id: DUMMY_NODE_ID,
+                                                    node: ExprKind::Path(
+                                                        None,
+                                                        Path {
+                                                            span: system.span,
+                                                            global: false,
+                                                            segments: vec![
+                                                                PathSegment {
+                                                                    identifier: str_to_ident("idx"),
+                                                                    parameters: PathParameters::none()
+                                                                }
+                                                            ]
+                                                        }
+                                                    ),
+                                                    span: system.span,
+                                                    attrs: None
+                                                })
+                                            ]
+                                        ),
+                                        span: system.span,
+                                        attrs: None
+                                    }),
+                                    DUMMY_NODE_ID
+                                )),
+                            ],
+                            expr: None,
+                            id: DUMMY_NODE_ID,
+                            rules: BlockCheckMode::Default,
+                            span: system.span
+                        }),
+                        None
+                    ),
+                    span: system.span,
+                    attrs: None
+                }),
+                DUMMY_NODE_ID
+            ))
+        );
+    }
 }
 
 impl HandlerFnInfo {
@@ -719,6 +843,7 @@ impl HandlerFnInfo {
             span: system.span
         }
     }
+
 }
 
 impl HandlerFnArg {

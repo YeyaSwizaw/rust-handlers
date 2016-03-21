@@ -3,7 +3,7 @@ use syntax::ptr::P;
 use syntax::parse::token::str_to_ident;
 use syntax::codemap::DUMMY_SP;
 
-pub fn indent_append(a: Ident, b: Ident) -> Ident {
+pub fn ident_append(a: Ident, b: Ident) -> Ident {
     let str1 = format!("{}", a.name.as_str());
     let str2 = format!("{}", b.name.as_str());
     str_to_ident(&(str1 + &str2))
