@@ -12,70 +12,34 @@ define_handler_system! System {
     }
 }
 
-/*
-pub trait MouseHandler {
-    fn on_click(&mut self);
-}
-
-pub trait InputHandler {
-    fn on_input(&mut self, input: char);
-}
-
-pub trait SystemObject {
-    fn as_MouseHandler(&self) -> Option<&MouseHandler>;
-    fn as_MouseHandler_mut(&mut self) -> Option<&mut MouseHandler>;
-
-    fn as_InputHandler(&self) -> Option<&InputHandler>;
-    fn as_InputHandler_mut(&mut self) -> Option<&mut InputHandler>;
-}
-
-pub struct System {
-    objects: Vec<Box<SystemObject>>,
-
-    MouseHandler_idxs: Vec<usize>,
-    InputHandler_idxs: Vec<usize>,
-}
-
-impl System {
-    pub fn new() -> System {
-        System {
-            objects: Vec::new(),
-
-            MouseHandler_idxs: Vec::new(),
-            InputHandler_idxs: Vec::new(),
-        }
-    }
-
-    pub fn add<O>(&mut self, object: O) where O: 'static + SystemObject {
-        let idx = self.objects.len();
-
-        self.objects.push(Box::new(object));
-        let object = self.objects.last().unwrap();
-
-        if let Some(_) = object.as_MouseHandler() {
-            self.MouseHandler_idxs.push(idx);
-        }
-
-        if let Some(_) = object.as_InputHandler() {
-            self.InputHandler_idxs.push(idx);
-        }
-    }
-}
-*/
-
 pub struct Test {
     pub n: i64
+}
+
+impl InputHandler for Test {
+    fn on_input(&mut self, input: char) {
+        println!("{}: {}", self.n, input);
+        self.n = self.n + 1;
+    }
 }
 
 impl SystemObject for Test {
     fn as_MouseHandler(&self) -> Option<&MouseHandler> { None }
     fn as_MouseHandler_mut(&mut self) -> Option<&mut MouseHandler> { None }
 
-    fn as_InputHandler(&self) -> Option<&InputHandler> { None }
-    fn as_InputHandler_mut(&mut self) -> Option<&mut InputHandler> { None }
+    fn as_InputHandler(&self) -> Option<&InputHandler> { Some(self as &InputHandler) }
+    fn as_InputHandler_mut(&mut self) -> Option<&mut InputHandler> { Some(self as &mut InputHandler) }
 }
 
 fn main() {
     let mut system = System::new();
     system.add(Test { n: 15 });
+    system.input('H');
+    system.input('e');
+    system.input('l');
+    system.hover();
+    system.input('l');
+    system.add(Test { n: 20 });
+    system.input('o');
+    system.input('!');
 }
