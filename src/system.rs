@@ -92,7 +92,7 @@ impl SystemInfo {
 
         for handler in self.handlers.iter() {
             fields.push(respan(self.span, StructField_ {
-                kind: StructFieldKind::NamedField(util::ident_append(handler.name, str_to_ident("_idxs")), Visibility::Inherited),
+                kind: StructFieldKind::NamedField(util::idxs_ident(handler.name), Visibility::Inherited),
                 id: DUMMY_NODE_ID,
                 ty: P(util::param_ty_from_ident(
                     str_to_ident("Vec"),
@@ -129,7 +129,7 @@ impl SystemInfo {
 
         for handler in self.handlers.iter() {
             fields.push(Field {
-                ident: respan(self.span, util::ident_append(handler.name, str_to_ident("_idxs"))),
+                ident: respan(self.span, util::idxs_ident(handler.name)),
                 expr: P(util::vec_new()),
                 span: self.span
             });
@@ -541,7 +541,7 @@ impl SystemInfo {
             items.extend_from_slice(&[
                 ImplItem {
                     id: DUMMY_NODE_ID,
-                    ident: util::ident_append(str_to_ident("as_"), handler.name),
+                    ident: util::as_ident(handler.name),
                     vis: Visibility::Inherited,
                     defaultness: Defaultness::Final,
                     attrs: Vec::new(),
@@ -673,7 +673,7 @@ impl SystemInfo {
 
                 ImplItem {
                     id: DUMMY_NODE_ID,
-                    ident: util::ident_append(str_to_ident("as_"), util::ident_append(handler.name, str_to_ident("_mut"))),
+                    ident: util::as_mut_ident(handler.name),
                     vis: Visibility::Inherited,
                     defaultness: Defaultness::Final,
                     attrs: Vec::new(),
@@ -869,7 +869,7 @@ impl HandlerInfo {
 
         TraitItem {
             id: DUMMY_NODE_ID,
-            ident: util::ident_append(str_to_ident("as_"), self.name),
+            ident: util::as_ident(self.name),
             attrs: Vec::new(),
             node: TraitItemKind::Method(
                 MethodSig {
@@ -920,7 +920,7 @@ impl HandlerInfo {
 
         TraitItem {
             id: DUMMY_NODE_ID,
-            ident: util::ident_append(util::ident_append(str_to_ident("as_"), self.name), str_to_ident("_mut")),
+            ident: util::as_mut_ident(self.name),
             attrs: Vec::new(),
             node: TraitItemKind::Method(
                 MethodSig {
@@ -996,7 +996,7 @@ impl HandlerInfo {
                             P(Expr {
                                 id: DUMMY_NODE_ID,
                                 node: ExprKind::MethodCall(
-                                    respan(system.span, util::ident_append(str_to_ident("as_"), util::ident_append(self.name, str_to_ident("_mut")))),
+                                    respan(system.span, util::as_mut_ident(self.name)),
                                     Vec::new(),
                                     vec![
                                         P(Expr {
@@ -1166,7 +1166,7 @@ impl HandlerInfo {
                                                             span: system.span,
                                                             attrs: None
                                                         }),
-                                                        respan(system.span, util::ident_append(self.name, str_to_ident("_idxs")))
+                                                        respan(system.span, util::idxs_ident(self.name))
                                                     ),
                                                     span: system.span,
                                                     attrs: None
@@ -1227,7 +1227,7 @@ impl HandlerInfo {
                                 vec![P(Expr {
                                     id: DUMMY_NODE_ID,
                                     node: ExprKind::MethodCall(
-                                        respan(system.span, util::ident_append(str_to_ident("as_"), self.name)),
+                                        respan(system.span, util::as_ident(self.name)),
                                         Vec::new(),
                                         vec![P(Expr {
                                             id: DUMMY_NODE_ID,
@@ -1286,7 +1286,7 @@ impl HandlerInfo {
                                                             span: system.span,
                                                             attrs: None
                                                         }),
-                                                        respan(system.span, util::ident_append(self.name, str_to_ident("_idxs")))
+                                                        respan(system.span, util::idxs_ident(self.name))
                                                     ),
                                                     span: system.span,
                                                     attrs: None
