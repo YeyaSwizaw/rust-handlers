@@ -1,9 +1,27 @@
+//////////////////////////////////////////////////////////////////////////////
+//  File: rust-handler/util.rs
+//////////////////////////////////////////////////////////////////////////////
+//  Copyright 2016 Samuel Sleight
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+//////////////////////////////////////////////////////////////////////////////
+
 use syntax::ast::*;
 use syntax::ptr::P;
 use syntax::parse::token::str_to_ident;
 use syntax::codemap::DUMMY_SP;
 
-// https://github.com/rust-lang/rust/blob/master/src/librustc_lint/bad_style.rs#L148
+// https://github.com/rust-lang/rust/blob/213d57983d1640d22bd69e7351731fd1adcbf9b2/src/librustc_lint/bad_style.rs#L148
 fn to_snake_case(mut str: &str) -> String {
     let mut words = vec![];
     str = str.trim_left_matches(|c: char| {
