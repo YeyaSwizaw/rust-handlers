@@ -136,6 +136,39 @@ pub fn param_ty_from_ident(name: Ident, ty: Ty) -> Ty {
     }
 }
 
+pub fn box_new(expr: P<Expr>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Call(
+            P(Expr {
+                id: DUMMY_NODE_ID,
+                node: ExprKind::Path(
+                    None,
+                    Path {
+                        span: DUMMY_SP,
+                        global: false,
+                        segments: vec![
+                            PathSegment {
+                                identifier: str_to_ident("Box"),
+                                parameters: PathParameters::none()
+                            },
+                            PathSegment {
+                                identifier: str_to_ident("new"),
+                                parameters: PathParameters::none()
+                            }
+                        ]
+                    }
+                ),
+                span: DUMMY_SP,
+                attrs: None
+            }),
+            vec![expr]
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
 pub fn vec_new() -> Expr {
     Expr {
         id: DUMMY_NODE_ID,
@@ -310,6 +343,28 @@ pub fn create_var_expr(name: Ident) -> Expr {
     }
 }
 
+pub fn create_struct_expr(name: Ident, fields: Vec<Field>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Struct(
+            Path {
+                span: DUMMY_SP,
+                global: false,
+                segments: vec![
+                    PathSegment {
+                        identifier: name,
+                        parameters: PathParameters::none()
+                    }
+                ]
+            },
+            fields,
+            None
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
 pub fn create_deref_expr(name: Ident) -> Expr {
     Expr {
         id: DUMMY_NODE_ID,
@@ -421,6 +476,36 @@ pub fn impl_method_priv(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: 
                     Mutability::Immutable,
                     str_to_ident("self")
                 ))
+            },
+            block
+        )
+    }
+}
+
+pub fn impl_static_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Block>) -> ImplItem {
+    ImplItem {
+        id: DUMMY_NODE_ID,
+        ident: name,
+        vis: Visibility::Public,
+        defaultness: Defaultness::Final,
+        attrs: Vec::new(),
+        span: DUMMY_SP,
+        node: ImplItemKind::Method(
+            MethodSig {
+                unsafety: Unsafety::Normal,
+                constness: Constness::NotConst,
+                abi: Abi::Rust,
+                decl: P(FnDecl {
+                    inputs: args,
+                    output: if let Some(ty) = ret {
+                        FunctionRetTy::Ty(ty)
+                    } else {
+                        FunctionRetTy::Default(DUMMY_SP)
+                    },
+                    variadic: false
+                }),
+                generics: Default::default(),
+                explicit_self: respan(DUMMY_SP, SelfKind::Static)
             },
             block
         )
@@ -549,9 +634,9 @@ pub fn create_call(expr: P<Expr>, args: Vec<P<Expr>>) -> Expr {
     }
 }
 
-pub fn create_block(stmts: Vec<P<Expr>>, expr: Option<P<Expr>>) -> Block {
+pub fn create_block(stmts: Vec<Stmt>, expr: Option<P<Expr>>) -> Block {
     Block {
-        stmts: stmts.into_iter().map(|expr| respan(DUMMY_SP, StmtKind::Semi(expr, DUMMY_NODE_ID))).collect(),
+        stmts: stmts,
         expr: expr,
         id: DUMMY_NODE_ID,
         rules: BlockCheckMode::Default,
@@ -613,4 +698,40 @@ pub fn create_trait(name: Ident, items: Vec<TraitItem>) -> Item {
         span: DUMMY_SP,
         vis: Visibility::Public
     }
+}
+
+pub fn create_field(name: Ident, value: P<Expr>) -> Field {
+    Field {
+        ident: respan(DUMMY_SP, name),
+        expr: value,
+        span: DUMMY_SP
+    }
+}
+
+pub fn create_let_stmt(name: Ident, expr: Option<P<Expr>>) -> Stmt {
+    respan(DUMMY_SP, StmtKind::Decl(
+        P(respan(DUMMY_SP, DeclKind::Local(
+            P(Local {
+                pat: P(Pat {
+                    id: DUMMY_NODE_ID,
+                    node: PatKind::Ident(
+                        BindingMode::ByValue(Mutability::Immutable),
+                        respan(DUMMY_SP, name),
+                        None
+                    ),
+                    span: DUMMY_SP
+                }),
+                ty: None,
+                init: expr,
+                id: DUMMY_NODE_ID,
+                span: DUMMY_SP,
+                attrs: None
+            })
+        ))),
+        DUMMY_NODE_ID
+    ))
+}
+
+pub fn create_stmt(expr: P<Expr>) -> Stmt {
+    respan(DUMMY_SP, StmtKind::Semi(expr, DUMMY_NODE_ID))
 }
