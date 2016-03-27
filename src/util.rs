@@ -89,6 +89,34 @@ pub fn ty_from_ident(name: Ident) -> Ty {
     }
 }
 
+pub fn ref_ty_from_ident(name: Ident) -> Ty {
+    Ty {
+        id: DUMMY_NODE_ID,
+        node: TyKind::Rptr(
+            None,
+            MutTy {
+                ty: P(ty_from_ident(name)),
+                mutbl: Mutability::Immutable
+            }
+        ),
+        span: DUMMY_SP
+    }
+}
+
+pub fn mut_ref_ty_from_ident(name: Ident) -> Ty {
+    Ty {
+        id: DUMMY_NODE_ID,
+        node: TyKind::Rptr(
+            None,
+            MutTy {
+                ty: P(ty_from_ident(name)),
+                mutbl: Mutability::Mutable
+            }
+        ),
+        span: DUMMY_SP
+    }
+}
+
 pub fn param_ty_from_ident(name: Ident, ty: Ty) -> Ty {
     Ty {
         id: DUMMY_NODE_ID,
@@ -183,7 +211,7 @@ pub fn create_arg(name: Ident, ty: P<Ty>) -> Arg {
     }
 }
 
-pub fn create_mut_trait_method(name: Ident, args: Vec<Arg>) -> TraitItem {
+pub fn create_mut_trait_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>) -> TraitItem {
     let mut args = args;
     args.insert(0, Arg::new_self(
         DUMMY_SP,
@@ -202,13 +230,56 @@ pub fn create_mut_trait_method(name: Ident, args: Vec<Arg>) -> TraitItem {
                 abi: Abi::Rust,
                 decl: P(FnDecl {
                     inputs: args,
-                    output: FunctionRetTy::Default(DUMMY_SP),
+                    output: if let Some(ty) = ret {
+                        FunctionRetTy::Ty(ty)
+                    } else {
+                        FunctionRetTy::Default(DUMMY_SP)
+                    },
                     variadic: false
                 }),
                 generics: Default::default(),
                 explicit_self: respan(DUMMY_SP, SelfKind::Region(
                     None,
                     Mutability::Mutable,
+                    str_to_ident("self")
+                ))
+            },
+            None
+        ),
+        span: DUMMY_SP
+    }
+}
+
+pub fn create_trait_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>) -> TraitItem {
+    let mut args = args;
+    args.insert(0, Arg::new_self(
+        DUMMY_SP,
+        Mutability::Immutable,
+        str_to_ident("self")
+    ));
+
+    TraitItem {
+        id: DUMMY_NODE_ID,
+        ident: name,
+        attrs: Vec::new(),
+        node: TraitItemKind::Method(
+            MethodSig {
+                unsafety: Unsafety::Normal,
+                constness: Constness::NotConst,
+                abi: Abi::Rust,
+                decl: P(FnDecl {
+                    inputs: args,
+                    output: if let Some(ty) = ret {
+                        FunctionRetTy::Ty(ty)
+                    } else {
+                        FunctionRetTy::Default(DUMMY_SP)
+                    },
+                    variadic: false
+                }),
+                generics: Default::default(),
+                explicit_self: respan(DUMMY_SP, SelfKind::Region(
+                    None,
+                    Mutability::Immutable,
                     str_to_ident("self")
                 ))
             },
@@ -233,6 +304,18 @@ pub fn create_var_expr(name: Ident) -> Expr {
                     }
                 ]
             }
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_deref_expr(name: Ident) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Unary(
+            UnOp::Deref,
+            P(create_var_expr(name))
         ),
         span: DUMMY_SP,
         attrs: None
@@ -303,6 +386,141 @@ pub fn create_for_expr(name: Ident, range: P<Expr>, block: P<Block>) -> Expr {
     }
 }
 
+pub fn impl_method_priv(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Block>) -> ImplItem {
+    let mut args = args;
+    args.insert(0, Arg::new_self(
+        DUMMY_SP,
+        Mutability::Immutable,
+        str_to_ident("self")
+    ));
+
+    ImplItem {
+        id: DUMMY_NODE_ID,
+        ident: name,
+        vis: Visibility::Inherited,
+        defaultness: Defaultness::Final,
+        attrs: Vec::new(),
+        span: DUMMY_SP,
+        node: ImplItemKind::Method(
+            MethodSig {
+                unsafety: Unsafety::Normal,
+                constness: Constness::NotConst,
+                abi: Abi::Rust,
+                decl: P(FnDecl {
+                    inputs: args,
+                    output: if let Some(ty) = ret {
+                        FunctionRetTy::Ty(ty)
+                    } else {
+                        FunctionRetTy::Default(DUMMY_SP)
+                    },
+                    variadic: false
+                }),
+                generics: Default::default(),
+                explicit_self: respan(DUMMY_SP, SelfKind::Region(
+                    None,
+                    Mutability::Immutable,
+                    str_to_ident("self")
+                ))
+            },
+            block
+        )
+    }
+}
+
+pub fn impl_mut_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Block>) -> ImplItem {
+    let mut args = args;
+    args.insert(0, Arg::new_self(
+        DUMMY_SP,
+        Mutability::Immutable,
+        str_to_ident("self")
+    ));
+
+    ImplItem {
+        id: DUMMY_NODE_ID,
+        ident: name,
+        vis: Visibility::Public,
+        defaultness: Defaultness::Final,
+        attrs: Vec::new(),
+        span: DUMMY_SP,
+        node: ImplItemKind::Method(
+            MethodSig {
+                unsafety: Unsafety::Normal,
+                constness: Constness::NotConst,
+                abi: Abi::Rust,
+                decl: P(FnDecl {
+                    inputs: args,
+                    output: if let Some(ty) = ret {
+                        FunctionRetTy::Ty(ty)
+                    } else {
+                        FunctionRetTy::Default(DUMMY_SP)
+                    },
+                    variadic: false
+                }),
+                generics: Default::default(),
+                explicit_self: respan(DUMMY_SP, SelfKind::Region(
+                    None,
+                    Mutability::Mutable,
+                    str_to_ident("self")
+                ))
+            },
+            block
+        )
+    }
+}
+
+pub fn impl_mut_method_priv(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Block>) -> ImplItem {
+    let mut args = args;
+    args.insert(0, Arg::new_self(
+        DUMMY_SP,
+        Mutability::Immutable,
+        str_to_ident("self")
+    ));
+
+    ImplItem {
+        id: DUMMY_NODE_ID,
+        ident: name,
+        vis: Visibility::Inherited,
+        defaultness: Defaultness::Final,
+        attrs: Vec::new(),
+        span: DUMMY_SP,
+        node: ImplItemKind::Method(
+            MethodSig {
+                unsafety: Unsafety::Normal,
+                constness: Constness::NotConst,
+                abi: Abi::Rust,
+                decl: P(FnDecl {
+                    inputs: args,
+                    output: if let Some(ty) = ret {
+                        FunctionRetTy::Ty(ty)
+                    } else {
+                        FunctionRetTy::Default(DUMMY_SP)
+                    },
+                    variadic: false
+                }),
+                generics: Default::default(),
+                explicit_self: respan(DUMMY_SP, SelfKind::Region(
+                    None,
+                    Mutability::Mutable,
+                    str_to_ident("self")
+                ))
+            },
+            block
+        )
+    }
+}
+
+pub fn create_cast_expr(expr: P<Expr>, ty: P<Ty>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Cast(
+            expr,
+            ty
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
 pub fn create_method_call(name: Ident, on: P<Expr>, args: Vec<P<Expr>>) -> Expr {
     let mut args = args;
     args.insert(0, on);
@@ -312,6 +530,18 @@ pub fn create_method_call(name: Ident, on: P<Expr>, args: Vec<P<Expr>>) -> Expr 
         node: ExprKind::MethodCall(
             respan(DUMMY_SP, name),
             Vec::new(),
+            args
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_call(expr: P<Expr>, args: Vec<P<Expr>>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Call(
+            expr,
             args
         ),
         span: DUMMY_SP,
@@ -339,3 +569,48 @@ pub fn create_unsafe_block(stmts: Vec<P<Expr>>, expr: Option<P<Expr>>) -> Block 
     }
 }
 
+pub fn create_impl(name: Ident, tr: Option<Ident>, items: Vec<ImplItem>) -> Item {
+    Item {
+        ident: name,
+        attrs: Vec::new(),
+        node: ItemKind::Impl(
+            Unsafety::Normal,
+            ImplPolarity::Positive,
+            Default::default(),
+            tr.map(|name| TraitRef {
+                path: Path {
+                    span: DUMMY_SP,
+                    global: false,
+                    segments: vec![
+                        PathSegment {
+                            identifier: name,
+                            parameters: PathParameters::none()
+                        }
+                    ]
+                },
+                ref_id: DUMMY_NODE_ID
+            }),
+            P(ty_from_ident(name)),
+            items
+        ),
+        id: DUMMY_NODE_ID,
+        span: DUMMY_SP,
+        vis: Visibility::Inherited
+    }
+}
+
+pub fn create_trait(name: Ident, items: Vec<TraitItem>) -> Item {
+    Item {
+        ident: name,
+        attrs: Vec::new(),
+        node: ItemKind::Trait(
+            Unsafety::Normal,
+            Default::default(),
+            P::from_vec(Vec::new()),
+            items
+        ),
+        id: DUMMY_NODE_ID,
+        span: DUMMY_SP,
+        vis: Visibility::Public
+    }
+}
