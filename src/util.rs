@@ -19,7 +19,8 @@
 use syntax::ast::*;
 use syntax::ptr::P;
 use syntax::parse::token::str_to_ident;
-use syntax::codemap::DUMMY_SP;
+use syntax::codemap::{respan, DUMMY_SP};
+use syntax::abi::Abi;
 
 // https://github.com/rust-lang/rust/blob/213d57983d1640d22bd69e7351731fd1adcbf9b2/src/librustc_lint/bad_style.rs#L148
 fn to_snake_case(mut str: &str) -> String {
@@ -139,3 +140,202 @@ pub fn vec_new() -> Expr {
         attrs: None
     }
 }
+
+pub fn create_struct_field(name: Ident, ty: P<Ty>) -> StructField {
+    respan(DUMMY_SP, StructField_ {
+        kind: StructFieldKind::NamedField(name, Visibility::Inherited),
+        id: DUMMY_NODE_ID,
+        ty: ty,
+        attrs: Vec::new()
+    })
+}
+
+pub fn create_struct(name: Ident, fields: Vec<StructField>) -> Item {
+    Item {
+        ident: name,
+        attrs: Vec::new(),
+        node: ItemKind::Struct(
+            VariantData::Struct(
+                fields,
+                DUMMY_NODE_ID
+            ),
+            Default::default()
+        ),
+        id: DUMMY_NODE_ID,
+        span: DUMMY_SP,
+        vis: Visibility::Public
+    }
+}
+
+pub fn create_arg(name: Ident, ty: P<Ty>) -> Arg {
+    Arg {
+        ty: ty,
+        pat: P(Pat {
+            id: DUMMY_NODE_ID,
+            node: PatKind::Ident(
+                BindingMode::ByValue(Mutability::Immutable),
+                respan(DUMMY_SP, name),
+                None
+            ),
+            span: DUMMY_SP
+        }),
+        id: DUMMY_NODE_ID
+    }
+}
+
+pub fn create_mut_trait_method(name: Ident, args: Vec<Arg>) -> TraitItem {
+    let mut args = args;
+    args.insert(0, Arg::new_self(
+        DUMMY_SP,
+        Mutability::Immutable,
+        str_to_ident("self")
+    ));
+
+    TraitItem {
+        id: DUMMY_NODE_ID,
+        ident: name,
+        attrs: Vec::new(),
+        node: TraitItemKind::Method(
+            MethodSig {
+                unsafety: Unsafety::Normal,
+                constness: Constness::NotConst,
+                abi: Abi::Rust,
+                decl: P(FnDecl {
+                    inputs: args,
+                    output: FunctionRetTy::Default(DUMMY_SP),
+                    variadic: false
+                }),
+                generics: Default::default(),
+                explicit_self: respan(DUMMY_SP, SelfKind::Region(
+                    None,
+                    Mutability::Mutable,
+                    str_to_ident("self")
+                ))
+            },
+            None
+        ),
+        span: DUMMY_SP
+    }
+}
+
+pub fn create_var_expr(name: Ident) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Path(
+            None,
+            Path {
+                span: DUMMY_SP,
+                global: false,
+                segments: vec![
+                    PathSegment {
+                        identifier: name,
+                        parameters: PathParameters::none()
+                    }
+                ]
+            }
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_self_field_expr(name: Ident) -> Expr {
+    create_field_expr(name, str_to_ident("self"))
+}
+
+pub fn create_field_expr(name: Ident, on: Ident) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Field(
+            P(Expr {
+                id: DUMMY_NODE_ID,
+                node: ExprKind::Path(
+                    None,
+                    Path {
+                        span: DUMMY_SP,
+                        global: false,
+                        segments: vec![
+                            PathSegment {
+                                identifier: on,
+                                parameters: PathParameters::none()
+                            }
+                        ]
+                    }
+                ),
+                span: DUMMY_SP,
+                attrs: None
+            }),
+            respan(DUMMY_SP, name)
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_if_expr(i: P<Expr>, t: P<Block>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::If(i, t, None),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_for_expr(name: Ident, range: P<Expr>, block: P<Block>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::ForLoop(
+            P(Pat {
+                id: DUMMY_NODE_ID,
+                node: PatKind::Ident(
+                    BindingMode::ByValue(Mutability::Immutable),
+                    respan(DUMMY_SP, name),
+                    None
+                ),
+                span: DUMMY_SP
+            }),
+            range,
+            block,
+            None
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_method_call(name: Ident, on: P<Expr>, args: Vec<P<Expr>>) -> Expr {
+    let mut args = args;
+    args.insert(0, on);
+
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::MethodCall(
+            respan(DUMMY_SP, name),
+            Vec::new(),
+            args
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_block(stmts: Vec<P<Expr>>, expr: Option<P<Expr>>) -> Block {
+    Block {
+        stmts: stmts.into_iter().map(|expr| respan(DUMMY_SP, StmtKind::Semi(expr, DUMMY_NODE_ID))).collect(),
+        expr: expr,
+        id: DUMMY_NODE_ID,
+        rules: BlockCheckMode::Default,
+        span: DUMMY_SP
+    }
+}
+
+pub fn create_unsafe_block(stmts: Vec<P<Expr>>, expr: Option<P<Expr>>) -> Block {
+    Block {
+        stmts: stmts.into_iter().map(|expr| respan(DUMMY_SP, StmtKind::Semi(expr, DUMMY_NODE_ID))).collect(),
+        expr: expr,
+        id: DUMMY_NODE_ID,
+        rules: BlockCheckMode::Unsafe(UnsafeSource::CompilerGenerated),
+        span: DUMMY_SP
+    }
+}
+
