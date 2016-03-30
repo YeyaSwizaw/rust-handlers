@@ -29,6 +29,7 @@ use ::util;
 pub struct SystemInfo {
     pub name: Ident,
     pub span: Span,
+    pub reqs: Vec<Ident>,
     pub handlers: Vec<HandlerInfo>
 }
 
@@ -56,8 +57,13 @@ impl SystemInfo {
         SystemInfo {
             name: name,
             span: span,
+            reqs: Vec::new(),
             handlers: Vec::new()
         }
+    }
+
+    pub fn add_requirement(&mut self, req: Ident) {
+        self.reqs.push(req);
     }
 
     pub fn add_handler(&mut self, handler: HandlerInfo) {
@@ -78,7 +84,8 @@ impl SystemInfo {
 
         util::create_trait(
             self.object_name(),
-            fns
+            &self.reqs,
+            &fns
         )
     }
 
@@ -363,7 +370,8 @@ impl HandlerInfo {
     pub fn generate(&self) -> Item {
         util::create_trait(
             self.name,
-            self.fns.iter().map(|function| function.generate()).collect()
+            &Vec::new(),
+            &self.fns.iter().map(|function| function.generate()).collect()
         )
     }
 

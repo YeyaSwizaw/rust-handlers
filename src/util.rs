@@ -684,15 +684,34 @@ pub fn create_impl(name: Ident, tr: Option<Ident>, items: Vec<ImplItem>) -> Item
     }
 }
 
-pub fn create_trait(name: Ident, items: Vec<TraitItem>) -> Item {
+pub fn create_trait(name: Ident, reqs: &Vec<Ident>, items: &Vec<TraitItem>) -> Item {
     Item {
         ident: name,
         attrs: Vec::new(),
         node: ItemKind::Trait(
             Unsafety::Normal,
             Default::default(),
-            P::from_vec(Vec::new()),
-            items
+            P::from_vec(reqs.iter().map(|req| TyParamBound::TraitTyParamBound(
+                PolyTraitRef {
+                    bound_lifetimes: Vec::new(),
+                    trait_ref: TraitRef {
+                        path: Path {
+                            span: DUMMY_SP,
+                            global: false,
+                            segments: vec![
+                                PathSegment {
+                                    identifier: *req,
+                                    parameters: PathParameters::none()
+                                }
+                            ]
+                        },
+                        ref_id: DUMMY_NODE_ID
+                    },
+                    span: DUMMY_SP
+                },
+                TraitBoundModifier::None
+            )).collect()),
+            items.clone()
         ),
         id: DUMMY_NODE_ID,
         span: DUMMY_SP,

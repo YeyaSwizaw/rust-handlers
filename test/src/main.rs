@@ -1,7 +1,11 @@
 #![feature(plugin)]
 #![plugin(handlers)]
 
+pub trait Renderable {}
+
 handlers_define_system! System {
+    * : Renderable;
+
     MouseHandler {
         click(x: u64, y: u64) => on_click;
         hover() => on_hover
@@ -22,6 +26,8 @@ impl InputHandler for Test {
         self.n = self.n + 1;
     }
 }
+
+impl Renderable for Test {}
 
 handlers_impl_object! System { 
     Test: InputHandler 

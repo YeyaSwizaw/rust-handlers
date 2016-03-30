@@ -40,7 +40,7 @@ use syntax::parse::parser::Parser;
 use syntax::ext::base::SyntaxExtension::IdentTT;
 use syntax::ext::base::{ExtCtxt, MacResult, DummyResult};
 use syntax::codemap::Span;
-use syntax::parse::token::{intern, Eof, Token};
+use syntax::parse::token::{intern, Eof, Token, BinOpToken};
 use syntax::ast::*;
 
 use system::*;
@@ -77,6 +77,40 @@ fn define_system_macro<'a>(ctx: &'a mut ExtCtxt, macro_span: Span, ident: Ident,
     if parser.check(&Eof) {
         ctx.span_err(macro_span, "Expected list of handler definitions");
         return DummyResult::any(macro_span);
+    }
+
+    if parser.check(&Token::BinOp(BinOpToken::Star)) {
+        parser.expect(&Token::BinOp(BinOpToken::Star)).unwrap();
+
+        if let Err(mut err) = parser.expect(&Token::Colon) {
+            err.emit();
+            return DummyResult::any(macro_span);
+        }
+
+        loop {
+            if parser.check(&Token::Semi) {
+                parser.expect(&Token::Semi).unwrap();
+                break;
+            }
+
+            match parser.parse_ident() {
+                Ok(ident) => system.add_requirement(ident),
+                Err(mut err) => {
+                    err.emit();
+                    return DummyResult::any(macro_span);
+                }
+            };
+
+            if !parser.check(&Token::Comma) {
+                if parser.check(&Token::Semi) {
+                    parser.expect(&Token::Semi).unwrap();
+                }
+
+                break;
+            }
+
+            parser.expect(&Token::Comma).unwrap();
+        }
     }
 
     loop {
