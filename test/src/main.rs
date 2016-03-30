@@ -1,7 +1,9 @@
 #![feature(plugin)]
 #![plugin(handlers)]
 
-pub trait Renderable {}
+pub trait Renderable {
+    fn render(&self);
+}
 
 handlers_define_system! System {
     * : Renderable;
@@ -27,7 +29,11 @@ impl InputHandler for Test {
     }
 }
 
-impl Renderable for Test {}
+impl Renderable for Test {
+    fn render(&self) {
+        println!("Rendering! {}", self.n);
+    }
+}
 
 handlers_impl_object! System { 
     Test: InputHandler 
@@ -36,6 +42,9 @@ handlers_impl_object! System {
 fn main() {
     let mut system = System::new();
     system.add(Test { n: 15 });
+    for obj in system.iter() {
+        obj.render();
+    }
     system.input('H');
     system.input('e');
     system.input('l');
@@ -44,4 +53,7 @@ fn main() {
     system.add(Test { n: 20 });
     system.input('o');
     system.input('!');
+    for obj in system.iter() {
+        obj.render();
+    }
 }

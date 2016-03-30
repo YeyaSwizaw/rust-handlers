@@ -136,6 +136,32 @@ pub fn param_ty_from_ident(name: Ident, ty: Ty) -> Ty {
     }
 }
 
+pub fn path_param_ty(names: Vec<Ident>, ty: Ty) -> Ty {
+    let mut segments: Vec<PathSegment> = names.iter().map(|name| PathSegment {
+        identifier: *name,
+        parameters: PathParameters::none()
+    }).collect();
+
+    {
+        let mut last = segments.last_mut().unwrap();
+        last.parameters = PathParameters::AngleBracketed(AngleBracketedParameterData {
+            lifetimes: Vec::new(),
+            types: P::from_vec(vec![P(ty)]),
+            bindings: P::from_vec(Vec::new())
+        });
+    }
+
+    Ty {
+        id: DUMMY_NODE_ID,
+        span: DUMMY_SP,
+        node: TyKind::Path(None, Path {
+            span: DUMMY_SP,
+            global: false,
+            segments: segments
+        })
+    }
+}
+
 pub fn box_new(expr: P<Expr>) -> Expr {
     Expr {
         id: DUMMY_NODE_ID,
@@ -438,6 +464,47 @@ pub fn create_for_expr(name: Ident, range: P<Expr>, block: P<Block>) -> Expr {
         ),
         span: DUMMY_SP,
         attrs: None
+    }
+}
+
+pub fn impl_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Block>) -> ImplItem {
+    let mut args = args;
+    args.insert(0, Arg::new_self(
+        DUMMY_SP,
+        Mutability::Immutable,
+        str_to_ident("self")
+    ));
+
+    ImplItem {
+        id: DUMMY_NODE_ID,
+        ident: name,
+        vis: Visibility::Public,
+        defaultness: Defaultness::Final,
+        attrs: Vec::new(),
+        span: DUMMY_SP,
+        node: ImplItemKind::Method(
+            MethodSig {
+                unsafety: Unsafety::Normal,
+                constness: Constness::NotConst,
+                abi: Abi::Rust,
+                decl: P(FnDecl {
+                    inputs: args,
+                    output: if let Some(ty) = ret {
+                        FunctionRetTy::Ty(ty)
+                    } else {
+                        FunctionRetTy::Default(DUMMY_SP)
+                    },
+                    variadic: false
+                }),
+                generics: Default::default(),
+                explicit_self: respan(DUMMY_SP, SelfKind::Region(
+                    None,
+                    Mutability::Immutable,
+                    str_to_ident("self")
+                ))
+            },
+            block
+        )
     }
 }
 
