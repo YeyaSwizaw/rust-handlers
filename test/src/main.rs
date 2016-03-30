@@ -3,6 +3,7 @@
 
 pub trait Renderable {
     fn render(&self);
+    fn update(&mut self, x: i64);
 }
 
 handlers_define_system! System {
@@ -33,6 +34,10 @@ impl Renderable for Test {
     fn render(&self) {
         println!("Rendering! {}", self.n);
     }
+
+    fn update(&mut self, x: i64) {
+        self.n += x;
+    }
 }
 
 handlers_impl_object! System { 
@@ -53,7 +58,8 @@ fn main() {
     system.add(Test { n: 20 });
     system.input('o');
     system.input('!');
-    for obj in system.iter() {
+    for obj in system.iter_mut() {
+        obj.update(-10);
         obj.render();
     }
 }

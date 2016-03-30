@@ -266,11 +266,34 @@ impl SystemInfo {
         )
     }
 
+    fn generate_fn_iter_mut_impl(&self) -> ImplItem {
+        util::impl_mut_method(
+            str_to_ident("iter_mut"),
+            Vec::new(),
+            Some(P(util::path_param_ty(
+                vec![str_to_ident("std"), str_to_ident("slice"), str_to_ident("IterMut")],
+                util::param_ty_from_ident(
+                    str_to_ident("Box"),
+                    util::ty_from_ident(self.object_name())
+                )
+            ))),
+            P(util::create_block(
+                Vec::new(),
+                Some(P(util::create_method_call(
+                    str_to_ident("iter_mut"),
+                    P(util::create_self_field_expr(str_to_ident("objects"))),
+                    Vec::new()
+                )))
+            ))
+        )
+    }
+
     fn generate_impl(&self) -> Item {
         let mut fns = vec![
             self.generate_fn_new_impl(),
             self.generate_fn_add_impl(),
-            self.generate_fn_iter_impl()
+            self.generate_fn_iter_impl(),
+            self.generate_fn_iter_mut_impl(),
         ];
 
         for handler in self.handlers.iter() {
