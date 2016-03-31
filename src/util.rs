@@ -16,6 +16,8 @@
 //  limitations under the License.
 //////////////////////////////////////////////////////////////////////////////
 
+#![allow(dead_code)]
+
 use syntax::ast::*;
 use syntax::ptr::P;
 use syntax::parse::token::str_to_ident;
@@ -237,6 +239,28 @@ pub fn create_struct_field(name: Ident, ty: P<Ty>) -> StructField {
     })
 }
 
+pub fn create_tuple_struct(name: Ident, fields: Vec<P<Ty>>) -> Item {
+    Item {
+        ident: name,
+        attrs: Vec::new(),
+        node: ItemKind::Struct(
+            VariantData::Tuple(
+                fields.into_iter().map(|ty| respan(DUMMY_SP, StructField_ {
+                    kind: StructFieldKind::UnnamedField(Visibility::Inherited),
+                    id: DUMMY_NODE_ID,
+                    ty: ty,
+                    attrs: Vec::new()
+                })).collect(),
+                DUMMY_NODE_ID
+            ),
+            Default::default()
+        ),
+        id: DUMMY_NODE_ID,
+        span: DUMMY_SP,
+        vis: Visibility::Public
+    }
+}
+
 pub fn create_struct(name: Ident, fields: Vec<StructField>) -> Item {
     Item {
         ident: name,
@@ -348,6 +372,24 @@ pub fn create_trait_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>) -> T
     }
 }
 
+pub fn create_block_expr(block: P<Block>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Block(block),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_idx_expr(idx: P<Expr>, expr: P<Expr>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Index(expr, idx),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
 pub fn create_var_expr(name: Ident) -> Expr {
     Expr {
         id: DUMMY_NODE_ID,
@@ -364,6 +406,47 @@ pub fn create_var_expr(name: Ident) -> Expr {
                 ]
             }
         ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_closure_expr(args: Vec<Arg>, block: P<Block>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Closure(
+            CaptureBy::Value,
+            P(FnDecl {
+                inputs: args,
+                output: FunctionRetTy::Default(DUMMY_SP),
+                variadic: false
+            }),
+            block
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_tuple_field_expr(expr: P<Expr>, field: usize) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::TupField(
+            expr,
+            respan(DUMMY_SP, field)
+        ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_num_expr(num: u64) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Lit(P(respan(DUMMY_SP, LitKind::Int(
+            num,
+            LitIntType::Unsuffixed
+        )))),
         span: DUMMY_SP,
         attrs: None
     }
@@ -391,12 +474,12 @@ pub fn create_struct_expr(name: Ident, fields: Vec<Field>) -> Expr {
     }
 }
 
-pub fn create_deref_expr(name: Ident) -> Expr {
+pub fn create_deref_expr(expr: P<Expr>) -> Expr {
     Expr {
         id: DUMMY_NODE_ID,
         node: ExprKind::Unary(
             UnOp::Deref,
-            P(create_var_expr(name))
+            expr
         ),
         span: DUMMY_SP,
         attrs: None
@@ -436,10 +519,28 @@ pub fn create_field_expr(name: Ident, on: Ident) -> Expr {
     }
 }
 
-pub fn create_if_expr(i: P<Expr>, t: P<Block>) -> Expr {
+pub fn create_if_expr(i: P<Expr>, t: P<Block>, e: Option<P<Expr>>) -> Expr {
     Expr {
         id: DUMMY_NODE_ID,
-        node: ExprKind::If(i, t, None),
+        node: ExprKind::If(i, t, e),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_if_let_expr(p: P<Pat>, i: P<Expr>, t: P<Block>, e: Option<P<Expr>>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::IfLet(p, i, t, e),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_loop_expr(block: P<Block>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Loop(block, None),
         span: DUMMY_SP,
         attrs: None
     }
@@ -462,6 +563,33 @@ pub fn create_for_expr(name: Ident, range: P<Expr>, block: P<Block>) -> Expr {
             block,
             None
         ),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_binop_expr(left: P<Expr>, op: BinOpKind, right: P<Expr>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Binary(respan(DUMMY_SP, op), left, right),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_assign_expr(left: P<Expr>, right: P<Expr>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::Assign(left, right),
+        span: DUMMY_SP,
+        attrs: None
+    }
+}
+
+pub fn create_assignop_expr(left: P<Expr>, op: BinOpKind, right: P<Expr>) -> Expr {
+    Expr {
+        id: DUMMY_NODE_ID,
+        node: ExprKind::AssignOp(respan(DUMMY_SP, op), left, right),
         span: DUMMY_SP,
         attrs: None
     }
@@ -711,14 +839,26 @@ pub fn create_block(stmts: Vec<Stmt>, expr: Option<P<Expr>>) -> Block {
     }
 }
 
-pub fn create_unsafe_block(stmts: Vec<P<Expr>>, expr: Option<P<Expr>>) -> Block {
+pub fn create_unsafe_block(stmts: Vec<Stmt>, expr: Option<P<Expr>>) -> Block {
     Block {
-        stmts: stmts.into_iter().map(|expr| respan(DUMMY_SP, StmtKind::Semi(expr, DUMMY_NODE_ID))).collect(),
+        stmts: stmts,
         expr: expr,
         id: DUMMY_NODE_ID,
         rules: BlockCheckMode::Unsafe(UnsafeSource::CompilerGenerated),
         span: DUMMY_SP
     }
+}
+
+pub fn create_return_block(expr: Option<P<Expr>>) -> Block {
+    create_block(
+        vec![create_stmt(P(Expr {
+            id: DUMMY_NODE_ID,
+            node: ExprKind::Ret(expr),
+            span: DUMMY_SP,
+            attrs: None
+        }))],
+        None
+    )
 }
 
 pub fn create_impl(name: Ident, tr: Option<Ident>, items: Vec<ImplItem>) -> Item {
@@ -794,6 +934,30 @@ pub fn create_field(name: Ident, value: P<Expr>) -> Field {
     }
 }
 
+pub fn create_let_mut_stmt(name: Ident, expr: Option<P<Expr>>) -> Stmt {
+    respan(DUMMY_SP, StmtKind::Decl(
+        P(respan(DUMMY_SP, DeclKind::Local(
+            P(Local {
+                pat: P(Pat {
+                    id: DUMMY_NODE_ID,
+                    node: PatKind::Ident(
+                        BindingMode::ByValue(Mutability::Mutable),
+                        respan(DUMMY_SP, name),
+                        None
+                    ),
+                    span: DUMMY_SP
+                }),
+                ty: None,
+                init: expr,
+                id: DUMMY_NODE_ID,
+                span: DUMMY_SP,
+                attrs: None
+            })
+        ))),
+        DUMMY_NODE_ID
+    ))
+}
+
 pub fn create_let_stmt(name: Ident, expr: Option<P<Expr>>) -> Stmt {
     respan(DUMMY_SP, StmtKind::Decl(
         P(respan(DUMMY_SP, DeclKind::Local(
@@ -820,4 +984,30 @@ pub fn create_let_stmt(name: Ident, expr: Option<P<Expr>>) -> Stmt {
 
 pub fn create_stmt(expr: P<Expr>) -> Stmt {
     respan(DUMMY_SP, StmtKind::Semi(expr, DUMMY_NODE_ID))
+}
+
+pub fn create_tuple_struct_pat(name: Ident, bindings: Vec<Ident>) -> Pat {
+    Pat {
+        id: DUMMY_NODE_ID,
+        node: PatKind::TupleStruct(
+            Path {
+                span: DUMMY_SP,
+                global: false,
+                segments: vec![PathSegment {
+                    identifier: name,
+                    parameters: PathParameters::none()
+                }]
+            },
+            Some(bindings.into_iter().map(|ident| P(Pat {
+                id: DUMMY_NODE_ID,
+                node: PatKind::Ident(
+                    BindingMode::ByValue(Mutability::Immutable),
+                    respan(DUMMY_SP, ident),
+                    None
+                ),
+                span: DUMMY_SP
+            })).collect())
+        ),
+        span: DUMMY_SP
+    }
 }

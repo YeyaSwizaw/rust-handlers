@@ -74,6 +74,10 @@ impl SystemInfo {
         util::ident_append(self.name, str_to_ident("Object"))
     }
 
+    fn idx_name(&self) -> Ident {
+        util::ident_append(self.name, str_to_ident("Index"))
+    }
+
     fn generate_object_trait(&self) -> Item {
         let mut fns = Vec::new();
 
@@ -89,19 +93,37 @@ impl SystemInfo {
         )
     }
 
-    fn generate_struct(&self) -> Item {
-        let objects_field = util::create_struct_field(
-            str_to_ident("objects"), 
-            P(util::param_ty_from_ident(
-                str_to_ident("Vec"),
-                util::param_ty_from_ident(
-                    str_to_ident("Box"),
-                    util::ty_from_ident(self.object_name())
-                )
-            ))
-        );
+    fn generate_idx_struct(&self) -> Item {
+        util::create_tuple_struct(
+            self.idx_name(),
+            vec![P(util::ty_from_ident(str_to_ident("usize")))]
+        )
+    }
 
-        let mut fields = vec![objects_field];
+    fn generate_struct(&self) -> Item {
+        let mut fields = vec![
+            util::create_struct_field(
+                str_to_ident("objects"), 
+                P(util::param_ty_from_ident(
+                    str_to_ident("Vec"),
+                    util::param_ty_from_ident(
+                        str_to_ident("Box"),
+                        util::ty_from_ident(self.object_name())
+                    )
+                ))
+            ),
+
+            util::create_struct_field(
+                str_to_ident("idxs"), 
+                P(util::param_ty_from_ident(
+                    str_to_ident("Vec"),
+                    util::param_ty_from_ident(
+                        str_to_ident("Option"),
+                        util::ty_from_ident(str_to_ident("usize")),
+                    )
+                ))
+            ),
+        ];
 
         for handler in self.handlers.iter() {
             fields.push(util::create_struct_field(
@@ -117,10 +139,16 @@ impl SystemInfo {
     }
 
     fn generate_fn_new_impl(&self) -> ImplItem {
-        let mut fields = vec![util::create_field(
-            str_to_ident("objects"),
-            P(util::vec_new())
-        )];
+        let mut fields = vec![
+            util::create_field(
+                str_to_ident("objects"),
+                P(util::vec_new())
+            ),
+            util::create_field(
+                str_to_ident("idxs"),
+                P(util::vec_new())
+            ),
+        ];
 
         for handler in self.handlers.iter() {
             fields.push(util::create_field(
@@ -142,23 +170,38 @@ impl SystemInfo {
 
     fn generate_fn_add_impl(&self) -> ImplItem {
         let mut stmts = vec![
+            // let idx = self.idxs.len();
             util::create_let_stmt(
                 str_to_ident("idx"),
                 Some(P(util::create_method_call(
                     str_to_ident("len"),
-                    P(util::create_self_field_expr(str_to_ident("objects"))),
+                    P(util::create_self_field_expr(str_to_ident("idxs"))),
                     Vec::new()
                 )))
             ),
 
+            // self.idxs.push(Some(self.objects.len()));
+            util::create_stmt(P(util::create_method_call(
+                str_to_ident("push"),
+                P(util::create_self_field_expr(str_to_ident("idxs"))),
+                vec![P(util::create_call(
+                    P(util::create_var_expr(str_to_ident("Some"))),
+                    vec![P(util::create_method_call(
+                        str_to_ident("len"),
+                        P(util::create_self_field_expr(str_to_ident("objects"))),
+                        Vec::new()
+                    ))]
+                ))]
+            ))),
+
+            // self.objects.push(Box::new(object));
             util::create_stmt(P(util::create_method_call(
                 str_to_ident("push"),
                 P(util::create_self_field_expr(str_to_ident("objects"))),
-                vec![
-                    P(util::box_new(P(util::create_var_expr(str_to_ident("object")))))
-                ]
+                vec![P(util::box_new(P(util::create_var_expr(str_to_ident("object")))))]
             ))),
 
+            // let object = self.objects.last().unwrap();
             util::create_let_stmt(
                 str_to_ident("object"),
                 Some(P(util::create_method_call(
@@ -183,8 +226,14 @@ impl SystemInfo {
                 str_to_ident("object"), 
                 P(util::ty_from_ident(str_to_ident("O")))
             )],
-            None,
-            P(util::create_block(stmts, None))
+            Some(P(util::ty_from_ident(self.idx_name()))),
+            P(util::create_block(
+                stmts, 
+                Some(P(util::create_call(
+                    P(util::create_var_expr(self.idx_name())),
+                    vec![P(util::create_var_expr(str_to_ident("idx")))]
+                )))
+            ))
         );
 
         if let ImplItemKind::Method(ref mut sig, _) = item.node {
@@ -288,12 +337,93 @@ impl SystemInfo {
         )
     }
 
+    fn generate_fn_remove_impl(&self) -> ImplItem {
+        util::impl_mut_method(
+            str_to_ident("remove"),
+            vec![util::create_arg(
+                str_to_ident("idx"),
+                P(util::ty_from_ident(self.idx_name()))
+            )],
+            Some(P(util::param_ty_from_ident(
+                str_to_ident("Option"),
+                util::param_ty_from_ident(
+                    str_to_ident("Box"),
+                    util::ty_from_ident(self.object_name())
+                )
+            ))),
+            P(util::create_block(
+                vec![
+                    util::create_let_stmt(
+                        str_to_ident("obj_idx"),
+                        Some(P(util::create_idx_expr(
+                            P(util::create_tuple_field_expr(
+                                P(util::create_var_expr(str_to_ident("idx"))),
+                                0
+                            )),
+                            P(util::create_self_field_expr(str_to_ident("idxs")))
+                        )))
+                    ),
+                ],
+                Some(P(util::create_method_call(
+                    str_to_ident("map"),
+                    P(util::create_var_expr(str_to_ident("obj_idx"))),
+                    vec![P(util::create_closure_expr(
+                        vec![util::create_arg(
+                            str_to_ident("obj_idx"),
+                            P(util::ty_from_ident(str_to_ident("usize")))
+                        )],
+                        P(util::create_unsafe_block(
+                            vec![
+                                util::create_let_stmt(
+                                    str_to_ident("obj"),
+                                    Some(P(util::create_method_call(
+                                        str_to_ident("swap_remove"),
+                                        P(util::create_self_field_expr(str_to_ident("objects"))),
+                                        vec![P(util::create_var_expr(str_to_ident("obj_idx")))]
+                                    )))
+                                ),
+                                util::create_stmt(P(util::create_assign_expr(
+                                    P(util::create_deref_expr(P(util::create_method_call(
+                                        str_to_ident("unwrap"),
+                                        P(util::create_method_call(
+                                            str_to_ident("last_mut"),
+                                            P(util::create_self_field_expr(str_to_ident("idxs"))),
+                                            Vec::new()
+                                        )),
+                                        Vec::new()
+                                    )))),
+                                    P(util::create_call(
+                                        P(util::create_var_expr(str_to_ident("Some"))),
+                                        vec![P(util::create_var_expr(str_to_ident("obj_idx")))]
+                                    ))
+                                ))),
+                                util::create_stmt(P(util::create_assign_expr(
+                                    P(util::create_deref_expr(P(util::create_method_call(
+                                        str_to_ident("get_unchecked_mut"),
+                                        P(util::create_self_field_expr(str_to_ident("idxs"))),
+                                        vec![P(util::create_tuple_field_expr(
+                                            P(util::create_var_expr(str_to_ident("idx"))),
+                                            0
+                                        ))]
+                                    )))),
+                                    P(util::create_var_expr(str_to_ident("None")))
+                                )))
+                            ],
+                            Some(P(util::create_var_expr(str_to_ident("obj"))))
+                        ))
+                    ))]
+                )))
+            ))
+        )
+    }
+
     fn generate_impl(&self) -> Item {
         let mut fns = vec![
             self.generate_fn_new_impl(),
             self.generate_fn_add_impl(),
             self.generate_fn_iter_impl(),
             self.generate_fn_iter_mut_impl(),
+            self.generate_fn_remove_impl(),
         ];
 
         for handler in self.handlers.iter() {
@@ -368,12 +498,13 @@ impl SystemInfo {
     }
 
     pub fn generate_ast(&self) -> Box<MacResult> {
-        let object_trait = self.generate_object_trait();
-        let system_struct = self.generate_struct();
-        let struct_impl = self.generate_impl();
-
         let mut items: Vec<P<Item>> = self.handlers.iter().map(|handler| P(handler.generate())).collect();
-        items.extend_from_slice(&[P(object_trait), P(system_struct), P(struct_impl)]);
+        items.extend_from_slice(&[
+            P(self.generate_object_trait()),
+            P(self.generate_idx_struct()),
+            P(self.generate_struct()),
+            P(self.generate_impl())
+        ]);
 
         MacEager::items(SmallVector::many(items))
     }
@@ -423,50 +554,103 @@ impl HandlerInfo {
 
     pub fn generate_signal_impl(&self, items: &mut Vec<ImplItem>) {
         for func in self.fns.iter() {
-            let obj_expr = util::create_method_call(
-                str_to_ident("get_unchecked_mut"),
-                P(util::create_self_field_expr(str_to_ident("objects"))),
+            let loop_block = util::create_block(
                 vec![
-                    P(util::create_deref_expr(str_to_ident("idx")))
-                ]
-            );
+                    // if i > len() { return }
+                    util::create_stmt(P(util::create_if_expr(
+                        P(util::create_binop_expr(
+                            P(util::create_var_expr(str_to_ident("i"))),
+                            BinOpKind::Ge,
+                            P(util::create_method_call(
+                                str_to_ident("len"),
+                                P(util::create_self_field_expr(util::idxs_ident(self.name))),
+                                Vec::new()
+                            ))
+                        )),
+                        P(util::create_return_block(None)),
+                        None
+                    ))),
 
-            let obj_expr = util::create_method_call(
-                util::as_mut_ident(self.name),
-                P(obj_expr),
-                Vec::new()
-            );
+                    // let idx = *handler_idxs.get_unchecked(i);
+                    util::create_let_stmt(
+                        str_to_ident("idx"),
+                        Some(P(util::create_deref_expr(P(util::create_method_call(
+                            str_to_ident("get_unchecked"),
+                            P(util::create_self_field_expr(util::idxs_ident(self.name))),
+                            vec![P(util::create_var_expr(str_to_ident("i")))]
+                        )))))
+                    ),
 
-            let obj_expr = util::create_method_call(
-                str_to_ident("unwrap"),
-                P(obj_expr),
-                Vec::new()
+                    util::create_let_stmt(
+                        str_to_ident("idx"),
+                        Some(P(util::create_deref_expr(P(util::create_method_call(
+                            str_to_ident("get_unchecked"),
+                            P(util::create_self_field_expr(str_to_ident("idxs"))),
+                            vec![P(util::create_var_expr(str_to_ident("idx")))]
+                        )))))
+                    ),
+
+                    util::create_stmt(P(util::create_if_let_expr(
+                        P(util::create_tuple_struct_pat(
+                            str_to_ident("Some"),
+                            vec![str_to_ident("idx")]
+                        )),
+                        P(util::create_var_expr(str_to_ident("idx"))),
+                        P(util::create_block(
+                            vec![
+                                util::create_stmt(P(util::create_method_call(
+                                    func.dest_name,
+                                    P(util::create_method_call(
+                                        str_to_ident("unwrap"),
+                                        P(util::create_method_call(
+                                            util::as_mut_ident(self.name),
+                                            P(util::create_method_call(
+                                                str_to_ident("get_unchecked_mut"),
+                                                P(util::create_self_field_expr(str_to_ident("objects"))),
+                                                vec![P(util::create_var_expr(str_to_ident("idx")))]
+                                            )),
+                                            Vec::new()
+                                        )),
+                                        Vec::new(),
+                                    )),
+                                    func.args.iter().map(|arg| P(util::create_var_expr(arg.name))).collect()
+                                ))),
+
+                                util::create_stmt(P(util::create_assignop_expr(
+                                    P(util::create_var_expr(str_to_ident("i"))),
+                                    BinOpKind::Add,
+                                    P(util::create_num_expr(1))
+                                )))
+                            ],
+                            None
+                        )),
+                        Some(P(util::create_block_expr(P(util::create_block(
+                            vec![util::create_stmt(P(util::create_method_call(
+                                str_to_ident("swap_remove"),
+                                P(util::create_self_field_expr(util::idxs_ident(self.name))),
+                                vec![P(util::create_var_expr(str_to_ident("i")))]
+                            )))],
+                            None
+                        ))))),
+                    )))
+                ],
+                None
             );
 
             items.push(util::impl_mut_method(
                 func.source_name,
                 func.args.iter().map(|arg| arg.generate()).collect(),
                 None,
-                P(util::create_block(
+                P(util::create_unsafe_block(
                     vec![
-                        util::create_stmt(P(util::create_for_expr(
-                            str_to_ident("idx"),
-                            P(util::create_method_call(
-                                str_to_ident("iter"),
-                                P(util::create_self_field_expr(util::idxs_ident(self.name))),
-                                Vec::new()
-                            )),
-                            P(util::create_unsafe_block(
-                                vec![
-                                    P(util::create_method_call(
-                                        func.dest_name,
-                                        P(obj_expr),
-                                        func.args.iter().map(|arg| P(util::create_var_expr(arg.name))).collect()
-                                    ))
-                                ],
-                                None
-                            ))
-                        )))
+                        // let mut i = 0;
+                        util::create_let_mut_stmt(
+                            str_to_ident("i"),
+                            Some(P(util::create_num_expr(0)))
+                        ),
+
+                        // loop { .. }
+                        util::create_stmt(P(util::create_loop_expr(P(loop_block)))),
                     ],
                     None
                 ))
@@ -497,7 +681,9 @@ impl HandlerInfo {
                     ))),
                 ],
                 None
-            ))
+            )),
+
+            None
         )
     }
 }

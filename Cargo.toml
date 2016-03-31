@@ -1,6 +1,6 @@
 [package]
 name = "handlers"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Samuel Sleight <samuel.sleight@gmail.com>"]
 description = "A plugin for generating systems of callback handlers"
 repository = "https://github.com/YeyaSwizaw/rust-handlers"

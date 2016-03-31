@@ -46,20 +46,21 @@ handlers_impl_object! System {
 
 fn main() {
     let mut system = System::new();
-    system.add(Test { n: 15 });
-    for obj in system.iter() {
-        obj.render();
-    }
+    let idx = system.add(Test{n: 15});
+    for obj in system.iter() { obj.render(); }
     system.input('H');
     system.input('e');
+    system.add(Test{n: 20});
+    for obj in system.iter() { obj.render(); }
     system.input('l');
     system.hover();
     system.input('l');
-    system.add(Test { n: 20 });
+    let obj = system.remove(idx).unwrap();
+    obj.render();
+    for obj in system.iter() { obj.render(); }
     system.input('o');
     system.input('!');
-    for obj in system.iter_mut() {
-        obj.update(-10);
-        obj.render();
-    }
+    system.add(Test{n: 25});
+    for obj in system.iter() { obj.render(); }
+    for obj in system.iter_mut() { obj.update(-10); obj.render(); }
 }
