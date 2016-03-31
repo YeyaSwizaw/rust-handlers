@@ -21,7 +21,7 @@ use syntax::ptr::P;
 use syntax::codemap::Span;
 use syntax::ext::base::{MacResult, MacEager};
 use syntax::util::small_vector::SmallVector;
-use syntax::parse::token::str_to_ident;
+use syntax::parse::token::{str_to_ident, InternedString};
 
 use ::util;
 
@@ -94,10 +94,19 @@ impl SystemInfo {
     }
 
     fn generate_idx_struct(&self) -> Item {
-        util::create_tuple_struct(
+        let mut item = util::create_tuple_struct(
             self.idx_name(),
             vec![P(util::ty_from_ident(str_to_ident("usize")))]
-        )
+        );
+
+        item.attrs = vec![util::create_derive(vec![
+            InternedString::new("Copy"),
+            InternedString::new("Clone"),
+            InternedString::new("Eq"),
+            InternedString::new("PartialEq"),
+        ])];
+
+        item
     }
 
     fn generate_struct(&self) -> Item {

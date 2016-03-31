@@ -20,7 +20,7 @@
 
 use syntax::ast::*;
 use syntax::ptr::P;
-use syntax::parse::token::str_to_ident;
+use syntax::parse::token::{str_to_ident, InternedString};
 use syntax::codemap::{respan, DUMMY_SP};
 use syntax::abi::Abi;
 
@@ -1010,4 +1010,16 @@ pub fn create_tuple_struct_pat(name: Ident, bindings: Vec<Ident>) -> Pat {
         ),
         span: DUMMY_SP
     }
+}
+
+pub fn create_derive(items: Vec<InternedString>) -> Attribute {
+    respan(DUMMY_SP, Attribute_ {
+        id: AttrId(0),
+        style: AttrStyle::Outer,
+        value: P(respan(DUMMY_SP, MetaItemKind::List(
+            InternedString::new("derive"),
+            items.into_iter().map(|item| P(respan(DUMMY_SP, MetaItemKind::Word(item)))).collect()
+        ))),
+        is_sugared_doc: false
+    })
 }
