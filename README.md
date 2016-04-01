@@ -1,6 +1,6 @@
 # rust-handlers
 
-A simple compiler plugin for generating systems of callback handlers.
+A simple compiler plugin for generating systems of event handlers.
 
 # Usage
 
