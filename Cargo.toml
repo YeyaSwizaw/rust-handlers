@@ -1,10 +1,10 @@
 [package]
 name = "handlers"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Samuel Sleight <samuel.sleight@gmail.com>"]
-description = "A plugin for generating systems of callback handlers"
+description = "A plugin for generating systems of event handlers"
 repository = "https://github.com/YeyaSwizaw/rust-handlers"
-keywords = ["system", "callback", "handler", "signal", "slot"]
+keywords = ["callback", "event", "handler", "signal", "slot"]
 license = "Apache-2.0"
 
 [lib]
