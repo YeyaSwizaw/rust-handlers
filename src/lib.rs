@@ -40,7 +40,7 @@ use syntax::parse::parser::Parser;
 use syntax::ext::base::SyntaxExtension::IdentTT;
 use syntax::ext::base::{ExtCtxt, MacResult, DummyResult};
 use syntax::codemap::Span;
-use syntax::parse::token::{intern, Eof, Token, BinOpToken};
+use syntax::parse::token::{intern, Eof, Token, BinOpToken, DelimToken};
 use syntax::ast::*;
 
 use system::*;
@@ -191,6 +191,31 @@ fn parse_handler_definition(ctx: &mut ExtCtxt, parser: &mut Parser) -> Option<Ha
             return None
         }
     };
+
+    if parser.check(&Token::Colon) {
+        parser.expect(&Token::Colon).unwrap();
+
+        loop {
+            if parser.check(&Token::OpenDelim(DelimToken::Brace)) {
+                break
+            }
+
+            match parser.parse_ident() {
+                Ok(ident) => handler.add_requirement(ident),
+
+                Err(mut err) => {
+                    err.emit();
+                    return None
+                }
+            };
+
+            if !parser.check(&Token::Comma) {
+                break
+            } else {
+                parser.expect(&Token::Comma).unwrap();
+            }
+        }
+    }
 
     match parser.parse_token_tree() {
         Ok(TokenTree::Delimited(span, ref tts)) => {

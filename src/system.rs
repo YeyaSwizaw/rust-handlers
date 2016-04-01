@@ -36,6 +36,7 @@ pub struct SystemInfo {
 #[derive(Debug, Clone)]
 pub struct HandlerInfo {
     pub name: Ident,
+    pub reqs: Vec<Ident>,
     pub fns: Vec<HandlerFnInfo>
 }
 
@@ -523,12 +524,17 @@ impl HandlerInfo {
     pub fn new(name: Ident) -> HandlerInfo {
         HandlerInfo {
             name: name,
+            reqs: Vec::new(),
             fns: Vec::new()
         }
     }
+    
+    pub fn add_requirement(&mut self, req: Ident) {
+        self.reqs.push(req);
+    }
 
     pub fn add_function(&mut self, function: HandlerFnInfo) {
-        self.fns.push(function)
+        self.fns.push(function);
     }
 
     pub fn generate_as_self(&self) -> TraitItem {
@@ -556,7 +562,7 @@ impl HandlerInfo {
     pub fn generate(&self) -> Item {
         util::create_trait(
             self.name,
-            &Vec::new(),
+            &self.reqs,
             &self.fns.iter().map(|function| function.generate()).collect()
         )
     }
