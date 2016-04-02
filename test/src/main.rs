@@ -1,4 +1,4 @@
-#![feature(plugin)]
+#![feature(plugin, box_syntax)]
 #![plugin(handlers)]
 
 pub trait Renderable {
@@ -46,11 +46,11 @@ handlers_impl_object! System {
 
 fn main() {
     let mut system = System::new();
-    let idx = system.add(Test{n: 15});
+    let idx = system.add(box Test{n: 15});
     for obj in system.iter() { obj.render(); }
     system.input('H');
     system.input('e');
-    system.add(Test{n: 20});
+    system.add(box Test{n: 20});
     for obj in system.iter() { obj.render(); }
     system.input('l');
     system.hover();
@@ -60,7 +60,7 @@ fn main() {
     for obj in system.iter() { obj.render(); }
     system.input('o');
     system.input('!');
-    system.add(Test{n: 25});
+    system.add(box Test{n: 25});
     for obj in system.iter() { obj.render(); }
     for obj in system.iter_mut() { obj.update(-10); obj.render(); }
 }

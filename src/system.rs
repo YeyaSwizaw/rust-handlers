@@ -204,11 +204,11 @@ impl SystemInfo {
                 ))]
             ))),
 
-            // self.objects.push(Box::new(object));
+            // self.objects.push(object);
             util::create_stmt(P(util::create_method_call(
                 str_to_ident("push"),
                 P(util::create_self_field_expr(str_to_ident("objects"))),
-                vec![P(util::box_new(P(util::create_var_expr(str_to_ident("object")))))]
+                vec![P(util::create_var_expr(str_to_ident("object")))]
             ))),
 
             // let object = self.objects.last().unwrap();
@@ -230,11 +230,14 @@ impl SystemInfo {
             stmts.push(util::create_stmt(P(handler.generate_add_check())));
         }
 
-        let mut item = util::impl_mut_method(
+        util::impl_mut_method(
             str_to_ident("add"),
             vec![util::create_arg(
                 str_to_ident("object"), 
-                P(util::ty_from_ident(str_to_ident("O")))
+                P(util::param_ty_from_ident(
+                    str_to_ident("Box"),
+                    util::ty_from_ident(self.object_name())
+                ))
             )],
             Some(P(util::ty_from_ident(self.idx_name()))),
             P(util::create_block(
@@ -244,63 +247,7 @@ impl SystemInfo {
                     vec![P(util::create_var_expr(str_to_ident("idx")))]
                 )))
             ))
-        );
-
-        if let ImplItemKind::Method(ref mut sig, _) = item.node {
-            sig.generics = Generics {
-                lifetimes: Vec::new(),
-                ty_params: P::from_vec(vec![
-                    TyParam {
-                        ident: str_to_ident("O"),
-                        id: DUMMY_NODE_ID,
-                        bounds: P::from_vec(Vec::new()),
-                        default: None,
-                        span: self.span
-                    }
-                ]),
-                where_clause: WhereClause {
-                    id: DUMMY_NODE_ID,
-                    predicates: vec![
-                        WherePredicate::BoundPredicate(WhereBoundPredicate {
-                            span: self.span,
-                            bound_lifetimes: Vec::new(),
-                            bounded_ty: P(util::ty_from_ident(str_to_ident("O"))),
-                            bounds: P::from_vec(vec![
-                                TyParamBound::RegionTyParamBound(
-                                    Lifetime {
-                                        id: DUMMY_NODE_ID,
-                                        span: self.span,
-                                        name: str_to_ident("'static").name
-                                    }
-                                ),
-                                TyParamBound::TraitTyParamBound(
-                                    PolyTraitRef {
-                                        bound_lifetimes: Vec::new(),
-                                        trait_ref: TraitRef {
-                                            path: Path {
-                                                span: self.span,
-                                                global: false,
-                                                segments: vec![
-                                                    PathSegment {
-                                                        identifier: self.object_name(),
-                                                        parameters: PathParameters::none()
-                                                    }
-                                                ]
-                                            },
-                                            ref_id: DUMMY_NODE_ID
-                                        },
-                                        span: self.span
-                                    },
-                                    TraitBoundModifier::None
-                                )
-                            ])
-                        })
-                    ]
-                }
-            }
-        };
-
-        item
+        )
     }
 
     fn generate_fn_iter_impl(&self) -> ImplItem {
