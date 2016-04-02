@@ -79,7 +79,6 @@ pub fn as_mut_ident(name: Ident) -> Ident {
 pub fn ty_from_ident(name: Ident) -> Ty {
     Ty {
         id: DUMMY_NODE_ID,
-        span: DUMMY_SP,
         node: TyKind::Path(None, Path {
             span: DUMMY_SP,
             global: false,
@@ -87,7 +86,8 @@ pub fn ty_from_ident(name: Ident) -> Ty {
                 identifier: name,
                 parameters: PathParameters::none()
             }]
-        })
+        }),
+        span: DUMMY_SP
     }
 }
 
@@ -105,6 +105,20 @@ pub fn ref_ty_from_ident(name: Ident) -> Ty {
     }
 }
 
+pub fn ref_ty(ty: P<Ty>) -> Ty {
+    Ty {
+        id: DUMMY_NODE_ID,
+        node: TyKind::Rptr(
+            None,
+            MutTy {
+                ty: ty,
+                mutbl: Mutability::Immutable
+            }
+        ),
+        span: DUMMY_SP
+    }
+}
+
 pub fn mut_ref_ty_from_ident(name: Ident) -> Ty {
     Ty {
         id: DUMMY_NODE_ID,
@@ -112,6 +126,20 @@ pub fn mut_ref_ty_from_ident(name: Ident) -> Ty {
             None,
             MutTy {
                 ty: P(ty_from_ident(name)),
+                mutbl: Mutability::Mutable
+            }
+        ),
+        span: DUMMY_SP
+    }
+}
+
+pub fn mut_ref_ty(ty: P<Ty>) -> Ty {
+    Ty {
+        id: DUMMY_NODE_ID,
+        node: TyKind::Rptr(
+            None,
+            MutTy {
+                ty: ty,
                 mutbl: Mutability::Mutable
             }
         ),
@@ -415,6 +443,7 @@ pub fn create_closure_expr(args: Vec<Arg>, block: P<Block>) -> Expr {
     Expr {
         id: DUMMY_NODE_ID,
         node: ExprKind::Closure(
+            //CaptureBy::Ref,
             CaptureBy::Value,
             P(FnDecl {
                 inputs: args,
