@@ -336,6 +336,14 @@ fn parse_handler_function_arg(_: &mut ExtCtxt, parser: &mut Parser) -> Option<Ha
         return None
     }
 
+    let ptr = if parser.check(&Token::BinOp(BinOpToken::And)) {
+        parser.expect(&Token::BinOp(BinOpToken::And)).unwrap();
+
+        parser.parse_mutability().ok()
+    } else {
+        None
+    };
+
     let ty = match parser.parse_ident() {
         Ok(ident) => ident,
 
@@ -345,5 +353,5 @@ fn parse_handler_function_arg(_: &mut ExtCtxt, parser: &mut Parser) -> Option<Ha
         }
     };
 
-    Some(HandlerFnArg::new(name, ty))
+    Some(HandlerFnArg::new(name, ty, ptr))
 }

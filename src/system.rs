@@ -51,6 +51,7 @@ pub struct HandlerFnInfo {
 pub struct HandlerFnArg {
     pub name: Ident,
     pub ty: Ident,
+    pub ptr: Option<Mutability>
 }
 
 impl SystemInfo {
@@ -817,14 +818,19 @@ impl HandlerFnInfo {
 }
 
 impl HandlerFnArg {
-    pub fn new(name: Ident, ty: Ident) -> HandlerFnArg {
+    pub fn new(name: Ident, ty: Ident, ptr: Option<Mutability>) -> HandlerFnArg {
         HandlerFnArg {
             name: name,
-            ty: ty
+            ty: ty,
+            ptr: ptr
         }
     }
 
     pub fn generate(&self) -> Arg {
-        util::create_arg(self.name, P(util::ty_from_ident(self.ty)))
+        util::create_arg(self.name, match self.ptr {
+            Some(Mutability::Immutable) => P(util::ref_ty_from_ident(self.ty)),
+            Some(Mutability::Mutable) => P(util::mut_ref_ty_from_ident(self.ty)),
+            None => P(util::ty_from_ident(self.ty))
+        })
     }
 }
