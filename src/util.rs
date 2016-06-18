@@ -21,8 +21,43 @@
 use syntax::ast::*;
 use syntax::ptr::P;
 use syntax::parse::token::{str_to_ident, InternedString};
-use syntax::codemap::{respan, DUMMY_SP};
+use syntax::codemap::{respan, Spanned, DUMMY_SP};
 use syntax::abi::Abi;
+
+fn self_arg(mutability: Mutability) -> Arg {
+    Arg {
+        ty: P(Ty {
+            id: DUMMY_NODE_ID,
+            node: TyKind::Rptr(
+                None,
+                MutTy {
+                    ty: P(Ty {
+                        id: DUMMY_NODE_ID,
+                        node: TyKind::ImplicitSelf,
+                        span: DUMMY_SP
+                    }),
+                    mutbl: mutability
+                }
+            ),
+            span: DUMMY_SP
+        }),
+
+        pat: P(Pat {
+            id: DUMMY_NODE_ID,
+            node: PatKind::Ident(
+                BindingMode::ByValue(mutability),
+                Spanned {
+                    span: DUMMY_SP,
+                    node: str_to_ident("self")
+                },
+                None
+            ),
+            span: DUMMY_SP
+        }),
+
+        id: DUMMY_NODE_ID
+    }
+}
 
 // https://github.com/rust-lang/rust/blob/213d57983d1640d22bd69e7351731fd1adcbf9b2/src/librustc_lint/bad_style.rs#L148
 fn to_snake_case(mut str: &str) -> String {
@@ -259,12 +294,14 @@ pub fn vec_new() -> Expr {
 }
 
 pub fn create_struct_field(name: Ident, ty: P<Ty>) -> StructField {
-    respan(DUMMY_SP, StructField_ {
-        kind: StructFieldKind::NamedField(name, Visibility::Inherited),
+    StructField {
+        span: DUMMY_SP,
+        ident: Some(name),
+        vis: Visibility::Inherited,
         id: DUMMY_NODE_ID,
         ty: ty,
         attrs: Vec::new()
-    })
+    }
 }
 
 pub fn create_tuple_struct(name: Ident, fields: Vec<P<Ty>>) -> Item {
@@ -273,12 +310,14 @@ pub fn create_tuple_struct(name: Ident, fields: Vec<P<Ty>>) -> Item {
         attrs: Vec::new(),
         node: ItemKind::Struct(
             VariantData::Tuple(
-                fields.into_iter().map(|ty| respan(DUMMY_SP, StructField_ {
-                    kind: StructFieldKind::UnnamedField(Visibility::Inherited),
+                fields.into_iter().map(|ty| StructField {
+                    span: DUMMY_SP,
+                    ident: None,
+                    vis: Visibility::Inherited,
                     id: DUMMY_NODE_ID,
                     ty: ty,
                     attrs: Vec::new()
-                })).collect(),
+                }).collect(),
                 DUMMY_NODE_ID
             ),
             Default::default()
@@ -324,11 +363,7 @@ pub fn create_arg(name: Ident, ty: P<Ty>) -> Arg {
 
 pub fn create_mut_trait_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>) -> TraitItem {
     let mut args = args;
-    args.insert(0, Arg::new_self(
-        DUMMY_SP,
-        Mutability::Immutable,
-        str_to_ident("self")
-    ));
+    args.insert(0, self_arg(Mutability::Mutable));
 
     TraitItem {
         id: DUMMY_NODE_ID,
@@ -349,11 +384,6 @@ pub fn create_mut_trait_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>) 
                     variadic: false
                 }),
                 generics: Default::default(),
-                explicit_self: respan(DUMMY_SP, SelfKind::Region(
-                    None,
-                    Mutability::Mutable,
-                    str_to_ident("self")
-                ))
             },
             None
         ),
@@ -363,11 +393,7 @@ pub fn create_mut_trait_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>) 
 
 pub fn create_trait_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>) -> TraitItem {
     let mut args = args;
-    args.insert(0, Arg::new_self(
-        DUMMY_SP,
-        Mutability::Immutable,
-        str_to_ident("self")
-    ));
+    args.insert(0, self_arg(Mutability::Immutable));
 
     TraitItem {
         id: DUMMY_NODE_ID,
@@ -388,11 +414,6 @@ pub fn create_trait_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>) -> T
                     variadic: false
                 }),
                 generics: Default::default(),
-                explicit_self: respan(DUMMY_SP, SelfKind::Region(
-                    None,
-                    Mutability::Immutable,
-                    str_to_ident("self")
-                ))
             },
             None
         ),
@@ -443,14 +464,14 @@ pub fn create_closure_expr(args: Vec<Arg>, block: P<Block>) -> Expr {
     Expr {
         id: DUMMY_NODE_ID,
         node: ExprKind::Closure(
-            //CaptureBy::Ref,
             CaptureBy::Value,
             P(FnDecl {
                 inputs: args,
                 output: FunctionRetTy::Default(DUMMY_SP),
                 variadic: false
             }),
-            block
+            block,
+            DUMMY_SP
         ),
         span: DUMMY_SP,
         attrs: None
@@ -626,11 +647,7 @@ pub fn create_assignop_expr(left: P<Expr>, op: BinOpKind, right: P<Expr>) -> Exp
 
 pub fn impl_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Block>) -> ImplItem {
     let mut args = args;
-    args.insert(0, Arg::new_self(
-        DUMMY_SP,
-        Mutability::Immutable,
-        str_to_ident("self")
-    ));
+    args.insert(0, self_arg(Mutability::Immutable));
 
     ImplItem {
         id: DUMMY_NODE_ID,
@@ -654,11 +671,6 @@ pub fn impl_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Blo
                     variadic: false
                 }),
                 generics: Default::default(),
-                explicit_self: respan(DUMMY_SP, SelfKind::Region(
-                    None,
-                    Mutability::Immutable,
-                    str_to_ident("self")
-                ))
             },
             block
         )
@@ -667,11 +679,7 @@ pub fn impl_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Blo
 
 pub fn impl_method_priv(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Block>) -> ImplItem {
     let mut args = args;
-    args.insert(0, Arg::new_self(
-        DUMMY_SP,
-        Mutability::Immutable,
-        str_to_ident("self")
-    ));
+    args.insert(0, self_arg(Mutability::Immutable));
 
     ImplItem {
         id: DUMMY_NODE_ID,
@@ -695,11 +703,6 @@ pub fn impl_method_priv(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: 
                     variadic: false
                 }),
                 generics: Default::default(),
-                explicit_self: respan(DUMMY_SP, SelfKind::Region(
-                    None,
-                    Mutability::Immutable,
-                    str_to_ident("self")
-                ))
             },
             block
         )
@@ -729,7 +732,6 @@ pub fn impl_static_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block
                     variadic: false
                 }),
                 generics: Default::default(),
-                explicit_self: respan(DUMMY_SP, SelfKind::Static)
             },
             block
         )
@@ -738,11 +740,7 @@ pub fn impl_static_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block
 
 pub fn impl_mut_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Block>) -> ImplItem {
     let mut args = args;
-    args.insert(0, Arg::new_self(
-        DUMMY_SP,
-        Mutability::Immutable,
-        str_to_ident("self")
-    ));
+    args.insert(0, self_arg(Mutability::Mutable));
 
     ImplItem {
         id: DUMMY_NODE_ID,
@@ -766,11 +764,6 @@ pub fn impl_mut_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P
                     variadic: false
                 }),
                 generics: Default::default(),
-                explicit_self: respan(DUMMY_SP, SelfKind::Region(
-                    None,
-                    Mutability::Mutable,
-                    str_to_ident("self")
-                ))
             },
             block
         )
@@ -779,11 +772,7 @@ pub fn impl_mut_method(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P
 
 pub fn impl_mut_method_priv(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, block: P<Block>) -> ImplItem {
     let mut args = args;
-    args.insert(0, Arg::new_self(
-        DUMMY_SP,
-        Mutability::Immutable,
-        str_to_ident("self")
-    ));
+    args.insert(0, self_arg(Mutability::Mutable));
 
     ImplItem {
         id: DUMMY_NODE_ID,
@@ -807,11 +796,6 @@ pub fn impl_mut_method_priv(name: Ident, args: Vec<Arg>, ret: Option<P<Ty>>, blo
                     variadic: false
                 }),
                 generics: Default::default(),
-                explicit_self: respan(DUMMY_SP, SelfKind::Region(
-                    None,
-                    Mutability::Mutable,
-                    str_to_ident("self")
-                ))
             },
             block
         )
@@ -1027,7 +1011,7 @@ pub fn create_tuple_struct_pat(name: Ident, bindings: Vec<Ident>) -> Pat {
                     parameters: PathParameters::none()
                 }]
             },
-            Some(bindings.into_iter().map(|ident| P(Pat {
+            bindings.into_iter().map(|ident| P(Pat {
                 id: DUMMY_NODE_ID,
                 node: PatKind::Ident(
                     BindingMode::ByValue(Mutability::Immutable),
@@ -1035,7 +1019,8 @@ pub fn create_tuple_struct_pat(name: Ident, bindings: Vec<Ident>) -> Pat {
                     None
                 ),
                 span: DUMMY_SP
-            })).collect())
+            })).collect(),
+            None
         ),
         span: DUMMY_SP
     }
