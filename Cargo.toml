@@ -1,6 +1,6 @@
 [package]
 name = "handlers"
-version = "0.7.1"
+version = "0.8.0"
 authors = ["Samuel Sleight <samuel.sleight@gmail.com>"]
 description = "A plugin for generating systems of event handlers"
 repository = "https://github.com/YeyaSwizaw/rust-handlers"
