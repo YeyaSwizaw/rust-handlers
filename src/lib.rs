@@ -16,342 +16,158 @@
 //  limitations under the License.
 //////////////////////////////////////////////////////////////////////////////
 
-#![feature(plugin_registrar, rustc_private)]
+#[macro_export]
+macro_rules! handlers {
+    (
+        $system_name:ident {
+            $($handler_name:ident {
+                $($signal_name:ident ( $($arg_name:ident : $arg_type:ty),* ) => $slot_name:ident);*
+            })*
+        }
+    ) => {
+        handlers! {
+            DEFINE_HANDLERS $system_name
 
-#[macro_use]
-extern crate syntax;
+            $($handler_name {
+                $($signal_name ( $($arg_name : $arg_type),* ) => $slot_name);*
+            })*
+        }
 
-#[macro_use]
-extern crate rustc;
+        interpolate_idents! {
+            pub trait [$system_name Object] : $([As $handler_name] +)* {}
+            pub trait [Is $system_name Object] {}
 
-#[macro_use]
-extern crate rustc_plugin;
+            impl<T> [$system_name Object] for T where T: $([As $handler_name] +)* {}
 
-#[macro_use]
-extern crate lazy_static;
+            #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+            pub struct [$system_name Index](usize);
 
-use std::ops::Deref;
-use std::sync::Mutex;
-use std::collections::HashMap;
+            pub struct [$system_name] {
+                objects: Vec<Box<[$system_name Object]>>,
+                idxs: Vec<Option<usize>>,
+                $([$handler_name _idxs]: Vec<usize>),*
+            }
 
-use rustc_plugin::Registry;
+            impl [$system_name] {
+                pub fn new() -> [$system_name] {
+                    [$system_name] {
+                        objects: Vec::new(),
+                        idxs: Vec::new(),
+                        $([$handler_name _idxs]: Vec::new()),*
+                    }
+                }
 
-use syntax::parse::parser::Parser;
-use syntax::ext::base::SyntaxExtension::IdentTT;
-use syntax::ext::base::{ExtCtxt, MacResult, DummyResult};
-use syntax::codemap::Span;
-use syntax::parse::token::{intern, Eof, Token, BinOpToken, DelimToken};
-use syntax::ast::*;
+                pub fn add(&mut self, object: Box<[$system_name Object]>) -> [$system_name Index] {
+                    let idx = self.idxs.len();
+                    self.idxs.push(Some(self.objects.len()));
+                    self.objects.push(object);
+                    let object = self.objects.last().unwrap();
+                    $(
+                        if object.[as_ $handler_name]().is_some() {
+                            println!("Added {}", stringify!($handler_name));
+                            self.[$handler_name _idxs].push(idx);
+                        };
+                    )*
+                    [$system_name Index](idx)
+                }
 
-use system::*;
+                pub fn remove(&mut self, idx: [$system_name Index]) -> Option<Box<[$system_name Object]>> {
+                    self.idxs.get(idx.0).cloned().and_then(
+                        move |obj_idx: Option<usize>| obj_idx.map(
+                            move |obj_idx: usize| unsafe {
+                                let obj = self.objects.swap_remove(obj_idx);
+                                *self.idxs.last_mut().unwrap() = Some(obj_idx);
+                                *self.idxs.get_unchecked_mut(idx.0) = None;
+                                obj
+                            }
+                        )
+                    )
+                }
 
-mod system;
-mod util;
+                pub fn iter(&self) -> ::std::slice::Iter<Box<[$system_name Object]>> {
+                    self.objects.iter()
+                }
 
-lazy_static! {
-    pub static ref DEFINED_SYSTEMS: Mutex<HashMap<String, SystemInfo>> = Mutex::new(HashMap::new());
+                $($(
+                    pub fn [$signal_name](&mut self, $($arg_name : $arg_type,)*) {
+                        unsafe {
+                            let mut i = 0;
+                            loop {
+                                if i >= self.[$handler_name _idxs].len() {
+                                    return
+                                };
+
+                                let idx = *self.[$handler_name _idxs].get_unchecked(i);
+                                let idx = *self.idxs.get_unchecked(i);
+                                if let Some(idx) = idx {
+                                    self.objects.get_unchecked_mut(idx).[as_ $handler_name _mut]().unwrap().[$slot_name]($($arg_name),*);
+                                    i += 1;
+                                } else {
+                                    self.[$handler_name _idxs].swap_remove(i);
+                                }
+                            }
+                        }
+                    }
+                )*)*
+            }
+        }
+
+    };
+
+    (
+        DEFINE_HANDLERS $system_name:ident
+
+        $($handler_name:ident {
+            $($signal_name:ident ( $($arg_name:ident : $arg_type:ty),* ) => $slot_name:ident);*
+        })*
+    ) => {
+        $(
+            pub trait $handler_name {
+                $(fn $slot_name(&mut self, $($arg_name : $arg_type,)*);)*
+            }
+
+            interpolate_idents! {
+                pub trait [As $handler_name] {
+                    fn [as_ $handler_name](&self) -> Option<&$handler_name>;
+                    fn [as_ $handler_name _mut](&mut self) -> Option<&mut $handler_name>;
+                }
+
+                impl<T> [As $handler_name] for T where T: [Is $system_name Object] + $handler_name {
+                    fn [as_ $handler_name](&self) -> Option<&$handler_name> {
+                        Some(self as &$handler_name)
+                    }
+
+                    fn [as_ $handler_name _mut](&mut self) -> Option<&mut $handler_name> {
+                        Some(self as &mut $handler_name)
+                    }
+                }
+
+                impl<T> [As $handler_name] for T where T: [Is $system_name Object] {
+                    default fn [as_ $handler_name](&self) -> Option<&$handler_name> {
+                        None
+                    }
+
+                    default fn [as_ $handler_name _mut](&mut self) -> Option<&mut $handler_name> {
+                        None
+                    }
+                }
+            }
+        )*
+    };
 }
 
-#[plugin_registrar]
-pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_syntax_extension(intern("handlers_define_system"), IdentTT(Box::new(define_system_macro), None, false));
-
-    reg.register_syntax_extension(intern("handlers_impl_object"), IdentTT(Box::new(impl_object_macro), None, false));
+#[macro_export]
+macro_rules! handlers_objects {
+    (
+        $system_name:ident {
+            $($object_name:ident),+
+        }
+    ) => (
+        $(
+            interpolate_idents! {
+                impl [Is $system_name Object] for $object_name {}
+            }
+        )+
+    )
 }
 
-fn define_system_macro<'a>(ctx: &'a mut ExtCtxt, macro_span: Span, ident: Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'a> {
-    let name = ident.name.as_str().deref().to_owned();
-
-    let mut systems = DEFINED_SYSTEMS.lock().unwrap();
-    if let Some(ref system) = systems.get(&name) {
-        ctx.struct_span_err(macro_span, &format!("Redefinition of system '{}'", name))
-            .span_note(system.span, "Previous definition was at:")
-            .emit();
-
-        return DummyResult::any(macro_span);
-    }
-
-    let mut system = SystemInfo::new(ident, macro_span);
-    let mut parser = ctx.new_parser_from_tts(&tts);
-
-    if parser.check(&Eof) {
-        ctx.span_err(macro_span, "Expected list of handler definitions");
-        return DummyResult::any(macro_span);
-    }
-
-    if parser.check(&Token::BinOp(BinOpToken::Star)) {
-        parser.expect(&Token::BinOp(BinOpToken::Star)).unwrap();
-
-        if let Err(mut err) = parser.expect(&Token::Colon) {
-            err.emit();
-            return DummyResult::any(macro_span);
-        }
-
-        loop {
-            if parser.check(&Token::Semi) {
-                parser.expect(&Token::Semi).unwrap();
-                break;
-            }
-
-            match parser.parse_ident() {
-                Ok(ident) => system.add_requirement(ident),
-                Err(mut err) => {
-                    err.emit();
-                    return DummyResult::any(macro_span);
-                }
-            };
-
-            if !parser.check(&Token::Comma) {
-                if parser.check(&Token::Semi) {
-                    parser.expect(&Token::Semi).unwrap();
-                }
-
-                break;
-            }
-
-            parser.expect(&Token::Comma).unwrap();
-        }
-    }
-
-    loop {
-        match parse_handler_definition(ctx, &mut parser) {
-            Some(handler) => system.add_handler(handler),
-            None => break
-        }
-
-        if parser.check(&Eof) {
-            break
-        }
-    }
-
-    let result = system.generate_ast();
-    systems.insert(name, system);
-    result
-}
-
-fn impl_object_macro<'a>(ctx: &'a mut ExtCtxt, macro_span: Span, ident: Ident, tts: Vec<TokenTree>) -> Box<MacResult + 'a> {
-    let name = ident.name.as_str().deref().to_owned();
-
-    let systems = DEFINED_SYSTEMS.lock().unwrap();
-    let system = if let Some(system) = systems.get(&name) {
-        system
-    } else {
-        ctx.span_err(macro_span, &format!("Implementing object for undefined system '{}'", name));
-        return DummyResult::any(macro_span);
-    };
-
-    let mut parser = ctx.new_parser_from_tts(&tts);
-
-    let obj = match parser.parse_ident() {
-        Ok(ident) => ident,
-
-        Err(mut err) => {
-            err.emit();
-            return DummyResult::any(macro_span);
-        }
-    };
-
-    if let Err(mut err) = parser.expect(&Token::Colon) {
-        err.emit();
-        return DummyResult::any(macro_span);
-    }
-
-    let mut impls = Vec::new();
-
-    loop {
-        if parser.check(&Eof) {
-            break
-        }
-
-        match parser.parse_ident() {
-            Ok(ident) => impls.push(format!("{}", ident)),
-
-            Err(mut err) => {
-                err.emit();
-                return DummyResult::any(macro_span);
-            }
-        }
-
-        if !parser.check(&Token::Comma) {
-            break
-        } else {
-            parser.expect(&Token::Comma).unwrap();
-        }
-    }
-
-    system.generate_object_impl(obj, &impls)
-}
-
-fn parse_handler_definition(ctx: &mut ExtCtxt, parser: &mut Parser) -> Option<HandlerInfo> {
-    let mut handler = match parser.parse_ident() {
-        Ok(ident) => HandlerInfo::new(ident),
-
-        Err(mut err) => {
-            err.emit();
-            return None
-        }
-    };
-
-    if parser.check(&Token::Colon) {
-        parser.expect(&Token::Colon).unwrap();
-
-        loop {
-            if parser.check(&Token::OpenDelim(DelimToken::Brace)) {
-                break
-            }
-
-            match parser.parse_ident() {
-                Ok(ident) => handler.add_requirement(ident),
-
-                Err(mut err) => {
-                    err.emit();
-                    return None
-                }
-            };
-
-            if !parser.check(&Token::Comma) {
-                break
-            } else {
-                parser.expect(&Token::Comma).unwrap();
-            }
-        }
-    }
-
-    match parser.parse_token_tree() {
-        Ok(TokenTree::Delimited(span, ref tts)) => {
-            let mut handler_parser = ctx.new_parser_from_tts(&tts.tts);
-
-            if handler_parser.check(&Eof) {
-                ctx.span_err(span, "Expected delimited list of handler functions");
-                return None
-            }
-
-            loop {
-                if handler_parser.check(&Eof) {
-                    break
-                }
-
-                match parse_handler_function_definition(ctx, &mut handler_parser) {
-                    Some(function) => handler.add_function(function),
-                    None => ()
-                };
-
-                if !handler_parser.check(&Token::Semi) {
-                    break
-                } else {
-                    handler_parser.expect(&Token::Semi).unwrap();
-                }
-            }
-        },
-
-        Ok(ref tt) => {
-            ctx.span_err(tt.get_span(), "Expected delimited list of handler functions");
-            return None
-        },
-
-        Err(mut err) => {
-            err.emit();
-            return None
-        }
-    }
-
-    Some(handler)
-}
-
-fn parse_handler_function_definition(ctx: &mut ExtCtxt, parser: &mut Parser) -> Option<HandlerFnInfo> {
-    let source = match parser.parse_ident() {
-        Ok(ident) => ident,
-
-        Err(mut err) => {
-            err.emit();
-            return None
-        }
-    };
-
-    let args = match parser.parse_token_tree() {
-        Ok(TokenTree::Delimited(_, ref tts)) => {
-            let mut arg_parser = ctx.new_parser_from_tts(&tts.tts);
-            let mut args = Vec::new();
-
-            loop {
-                if arg_parser.check(&Eof) {
-                    break
-                }
-
-                match parse_handler_function_arg(ctx, &mut arg_parser) {
-                    Some(arg) => args.push(arg),
-                    None => ()
-                }
-
-                if !arg_parser.check(&Token::Comma) {
-                    break
-                } else {
-                    arg_parser.expect(&Token::Comma).unwrap();
-                }
-            }
-
-            args
-        },
-
-        Ok(ref tt) => {
-            ctx.span_err(tt.get_span(), "Expected function argument list");
-            return None
-        },
-
-        Err(mut err) => {
-            err.emit();
-            return None
-        }
-    };
-
-    if let Err(mut err) = parser.expect(&Token::FatArrow) {
-        err.emit();
-        return None
-    };
-
-    let dest = match parser.parse_ident() {
-        Ok(ident) => ident,
-
-        Err(mut err) => {
-            err.emit();
-            return None
-        }
-    };
-
-    Some(HandlerFnInfo::new(source, dest, args))
-}
-
-fn parse_handler_function_arg(_: &mut ExtCtxt, parser: &mut Parser) -> Option<HandlerFnArg> {
-    let name = match parser.parse_ident() {
-        Ok(ident) => ident,
-
-        Err(mut err) => {
-            err.emit();
-            return None
-        }
-    };
-
-    if let Err(mut err) = parser.expect(&Token::Colon) {
-        err.emit();
-        return None
-    }
-
-    let ptr = if parser.check(&Token::BinOp(BinOpToken::And)) {
-        parser.expect(&Token::BinOp(BinOpToken::And)).unwrap();
-
-        parser.parse_mutability().ok()
-    } else {
-        None
-    };
-
-    let ty = match parser.parse_ident() {
-        Ok(ident) => ident,
-
-        Err(mut err) => {
-            err.emit();
-            return None
-        }
-    };
-
-    Some(HandlerFnArg::new(name, ty, ptr))
-}

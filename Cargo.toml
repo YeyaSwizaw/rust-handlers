@@ -7,8 +7,5 @@ repository = "https://github.com/YeyaSwizaw/rust-handlers"
 keywords = ["callback", "event", "handler", "signal", "slot"]
 license = "Apache-2.0"
 
-[lib]
-plugin = true
-
 [dependencies]
-lazy_static = "^0.1.0"
+interpolate_idents = "*"
