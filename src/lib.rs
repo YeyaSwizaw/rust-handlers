@@ -64,7 +64,6 @@ macro_rules! handlers {
                     let object = self.objects.last().unwrap();
                     $(
                         if object.[as_ $handler_name]().is_some() {
-                            println!("Added {}", stringify!($handler_name));
                             self.[$handler_name _idxs].push(idx);
                         };
                     )*
@@ -98,7 +97,7 @@ macro_rules! handlers {
                                 };
 
                                 let idx = *self.[$handler_name _idxs].get_unchecked(i);
-                                let idx = *self.idxs.get_unchecked(i);
+                                let idx = *self.idxs.get_unchecked(idx);
                                 if let Some(idx) = idx {
                                     self.objects.get_unchecked_mut(idx).[as_ $handler_name _mut]().unwrap().[$slot_name]($($arg_name),*);
                                     i += 1;
