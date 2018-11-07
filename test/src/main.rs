@@ -1,5 +1,4 @@
-#![feature(plugin, specialization, box_syntax)]
-#![plugin(interpolate_idents)]
+#![feature(specialization, box_syntax)]
 
 #[macro_use] extern crate handlers;
 

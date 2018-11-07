@@ -8,4 +8,4 @@ keywords = ["callback", "event", "handler", "signal", "slot"]
 license = "Apache-2.0"
 
 [dependencies]
-interpolate_idents = "*"
+paste = "0.1.3"
