@@ -1,6 +1,6 @@
 [package]
 name = "handlers"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["Samuel Sleight <samuel.sleight@gmail.com>"]
 description = "A macro for generating systems of event handlers"
 repository = "https://github.com/YeyaSwizaw/rust-handlers"
